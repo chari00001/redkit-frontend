@@ -4,17 +4,9 @@ import React, { useState } from 'react'
 import { FaArrowUp, FaArrowDown, FaComment, FaShare } from 'react-icons/fa'
 import { motion } from 'framer-motion'
 
-const PostCard = () => {
+const PostCard = ({ text, image }) => {
   const [votes, setVotes] = useState(1423)
   const [voted, setVoted] = useState(null) // null, 'up', or 'down'
-
-  const mockPost = {
-    title: "Check out this amazing sunset I captured!",
-    author: "nature_lover",
-    timePosted: "5 hours ago",
-    content: "I was lucky enough to catch this incredible view during my evening hike. The colors were absolutely breathtaking!",
-    commentCount: 47,
-  }
 
   const handleVote = (direction) => {
     if (voted === direction) {
@@ -59,16 +51,22 @@ const PostCard = () => {
         {/* Content Section */}
         <div className="flex-1">
           <div className="text-xs text-gray-500 mb-1">
-            Posted by u/{mockPost.author} {mockPost.timePosted}
+            Posted by u/anonymous • just now
           </div>
-          <h2 className="text-lg font-medium mb-2">{mockPost.title}</h2>
-          <p className="text-gray-700 mb-4">{mockPost.content}</p>
+          {text && <p className="text-gray-700 mb-4">{text}</p>}
+          {image && (
+            <img 
+              src={image} 
+              alt="Post content" 
+              className="rounded-lg max-h-96 object-cover mb-4"
+            />
+          )}
 
           {/* Actions Section */}
           <div className="flex gap-4">
             <button className="flex items-center gap-2 text-gray-500 hover:bg-gray-100 rounded-md px-2 py-1">
               <FaComment size={16} />
-              <span className="text-sm">{mockPost.commentCount} Comments</span>
+              <span className="text-sm">Comments</span>
             </button>
             <button className="flex items-center gap-2 text-gray-500 hover:bg-gray-100 rounded-md px-2 py-1">
               <FaShare size={16} />

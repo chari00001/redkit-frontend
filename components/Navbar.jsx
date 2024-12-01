@@ -3,9 +3,12 @@
 import React, { useState } from 'react';
 import { FaReddit, FaSearch } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import Auth from './Auth';
 
 const Navbar = () => {
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
 
   return (
     <nav className="fixed top-0 left-0 right-0 h-14 bg-white shadow-md z-50">
@@ -45,6 +48,10 @@ const Navbar = () => {
             className="px-6 py-1.5 text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setAuthMode('login');
+              setShowAuth(true);
+            }}
           >
             Log In
           </motion.button>
@@ -52,11 +59,21 @@ const Navbar = () => {
             className="px-6 py-1.5 bg-accent text-white rounded-full hover:bg-orange-600 transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setAuthMode('register');
+              setShowAuth(true);
+            }}
           >
             Sign Up
           </motion.button>
         </div>
       </div>
+
+      <Auth 
+        isOpen={showAuth}
+        onClose={() => setShowAuth(false)}
+        initialMode={authMode}
+      />
     </nav>
   );
 };
