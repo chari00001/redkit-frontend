@@ -13,6 +13,7 @@ import {
   FaTv,
   FaBook,
 } from "react-icons/fa";
+import Link from "next/link"
 
 const LeftComp = () => {
   const topics = [
@@ -37,15 +38,16 @@ const LeftComp = () => {
         <h3 className="text-sm font-medium text-gray-500 mb-2 px-2">FEEDS</h3>
         <div className="space-y-1">
           {topics.map((topic, index) => (
-            <motion.button
-              key={index}
-              className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="text-lg">{topic.icon}</span>
-              <span>{topic.text}</span>
-            </motion.button>
+            <Link href={topic.link} key={index}>
+              <motion.div
+                className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="text-lg">{topic.icon}</span>
+                <span>{topic.text}</span>
+              </motion.div>
+            </Link>
           ))}
         </div>
       </div>
@@ -55,15 +57,16 @@ const LeftComp = () => {
         <h3 className="text-sm font-medium text-gray-500 mb-2 px-2">TOPICS</h3>
         <div className="space-y-1">
           {interests.map((interest, index) => (
-            <motion.button
-              key={index}
-              className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="text-lg">{interest.icon}</span>
-              <span>{interest.text}</span>
-            </motion.button>
+            <Link href={interest.link} key={index}>
+              <motion.div
+                className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="text-lg">{interest.icon}</span>
+                <span>{interest.text}</span>
+              </motion.div>
+            </Link>
           ))}
         </div>
       </div>

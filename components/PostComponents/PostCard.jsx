@@ -37,7 +37,7 @@ const PostCard = ({ text, image }) => {
           >
             <FaArrowUp size={20} />
           </motion.button>
-          <span className="text-sm font-medium my-1">{votes}</span>
+          <span className="text-sm font-medium my-1 text-black font-semibold">{votes}</span>
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
