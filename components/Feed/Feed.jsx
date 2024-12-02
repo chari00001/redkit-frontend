@@ -1,5 +1,8 @@
+"use client"
+
 import React from 'react'
 import PostCard from "@/components/PostComponents/PostCard"
+import { useRouter } from 'next/navigation'
 
 const mockPosts = [
   {
@@ -45,17 +48,25 @@ const mockPosts = [
 ]
 
 const Feed = () => {
+  const router = useRouter();
+
+  const handlePostClick = (postId) => {
+    // Using the correct Next.js route format
+    router.push(`/post?id=${postId}`);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {mockPosts.map(post => (
-        <PostCard 
-          key={post.id}
-          text={post.text}
-          image={post.image}
-          author={post.author}
-          timePosted={post.timePosted}
-          commentCount={post.commentCount}
-        />
+        <div key={post.id} onClick={() => handlePostClick(post.id)} className="cursor-pointer">
+          <PostCard 
+            text={post.text}
+            image={post.image}
+            author={post.author}
+            timePosted={post.timePosted}
+            commentCount={post.commentCount}
+          />
+        </div>
       ))}
     </div>
   )
