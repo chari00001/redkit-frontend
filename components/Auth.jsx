@@ -28,7 +28,7 @@ const Auth = ({ isOpen, onClose, initialMode = 'login' }) => {
       >
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">
+          <h2 className="text-xl font-bold text-gray-800">
             {mode === 'login' ? 'Log In' : 'Sign Up'}
           </h2>
           <button 
@@ -45,7 +45,7 @@ const Auth = ({ isOpen, onClose, initialMode = 'login' }) => {
           className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-full py-2 px-4 mb-4 hover:bg-gray-50"
         >
           <FcGoogle size={20} />
-          <span>Continue with Google</span>
+          <span className="text-gray-800">Continue with Google</span>
         </button>
 
         <div className="relative mb-4">

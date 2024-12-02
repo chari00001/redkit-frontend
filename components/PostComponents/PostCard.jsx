@@ -1,12 +1,14 @@
 "use client"
 
 import React, { useState } from 'react'
-import { FaArrowUp, FaArrowDown, FaComment, FaShare } from 'react-icons/fa'
+import { FaArrowUp, FaArrowDown, FaComment, FaShare, FaTwitter, FaWhatsapp, FaInstagram, FaEnvelope } from 'react-icons/fa'
 import { motion } from 'framer-motion'
+import ShareComp from './PostButtons/ShareComp'
 
 const PostCard = ({ text, image }) => {
   const [votes, setVotes] = useState(1423)
   const [voted, setVoted] = useState(null) // null, 'up', or 'down'
+  const [showShare, setShowShare] = useState(false)
 
   const handleVote = (direction) => {
     if (voted === direction) {
@@ -68,13 +70,14 @@ const PostCard = ({ text, image }) => {
               <FaComment size={16} />
               <span className="text-sm">Comments</span>
             </button>
-            <button className="flex items-center gap-2 text-gray-500 hover:bg-gray-100 rounded-md px-2 py-1">
+            <button className="flex items-center gap-2 text-gray-500 hover:bg-gray-100 rounded-md px-2 py-1" onClick={() => setShowShare(true)}>
               <FaShare size={16} />
               <span className="text-sm">Share</span>
             </button>
           </div>
         </div>
       </div>
+      <ShareComp show={showShare} onClose={() => setShowShare(false)} />
     </div>
   )
 }

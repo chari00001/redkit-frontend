@@ -5,6 +5,7 @@ import { FaReddit, FaSearch, FaPlus, FaComments, FaBell, FaTrophy, FaUserCircle,
 import { motion } from 'framer-motion';
 import Auth from './Auth';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const Navbar = () => {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -15,6 +16,8 @@ const Navbar = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
+
+  const router = useRouter()
 
   const mockNotifications = [
     { id: 1, text: "Someone replied to your post", time: "2m ago" },
@@ -88,6 +91,7 @@ const Navbar = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             title="Create Post"
+            onClick={() => router.push('/createPost')}
           >
             <FaPlus size={20} />
           </motion.button>

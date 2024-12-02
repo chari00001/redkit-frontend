@@ -1,6 +1,11 @@
-import React from 'react'
+"use client"
+
+import React, { useState } from 'react'
+import ShareComp from '../../components/PostComponents/PostButtons/ShareComp'
 
 export default function PostDetail() {
+  const [showShare, setShowShare] = useState(false)
+
   return (
     <main className="min-h-screen p-4 pt-20 bg-background text-black">
       <article className="max-w-3xl mx-auto bg-foreground/5 rounded-lg p-6 shadow-lg">
@@ -44,7 +49,7 @@ export default function PostDetail() {
                 <span className="font-medium text-sm">156 Comments</span>
               </button>
               
-              <button className="flex items-center gap-1.5 hover:bg-foreground/10 p-1.5 rounded transition-colors">
+              <button className="flex items-center gap-1.5 hover:bg-foreground/10 p-1.5 rounded transition-colors" onClick={(e) => { e.preventDefault(); setShowShare(true); }}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
@@ -136,6 +141,7 @@ export default function PostDetail() {
           </div>
         </section>
       </article>
+    <ShareComp show={true} onClose={() => console.log('Share dialog closed')} />
     </main>
   )
 }
