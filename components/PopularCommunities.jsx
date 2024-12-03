@@ -1,36 +1,10 @@
 import React from "react";
 import { FaUsers, FaGamepad, FaMusic, FaFilm, FaCode } from "react-icons/fa";
+import communities from "@/mockData/communities";
 
 const PopularCommunities = () => {
-  const communities = [
-    {
-      icon: <FaGamepad />,
-      name: "r/gaming",
-      members: "34.2M members",
-      description: "A community for gaming enthusiasts",
-    },
-    {
-      icon: <FaMusic />,
-      name: "r/Music",
-      members: "30.1M members",
-      description: "The musical corner of Reddit",
-    },
-    {
-      icon: <FaFilm />,
-      name: "r/movies",
-      members: "29.8M members",
-      description: "News & Discussion about Major Motion Pictures",
-    },
-    {
-      icon: <FaCode />,
-      name: "r/programming",
-      members: "8.2M members",
-      description: "Programming discussions and news",
-    },
-  ];
-
   return (
-    <div className="w-80 bg-white rounded-lg shadow-sm p-4 sticky top-0 h-min">
+    <div className="w-80 bg-white rounded-lg shadow-sm p-4 sticky top-0 h-min text-black">
       <h2 className="text-base font-medium mb-4">Popular Communities</h2>
 
       <div className="space-y-4">
