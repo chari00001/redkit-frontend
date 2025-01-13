@@ -22,13 +22,13 @@ import {
   FaUserPlus,
 } from "react-icons/fa";
 import Link from "next/link";
-import topics from "@/mockData/topics"; // Mock data import
+import { topics } from "@/mockData/topics"; // Düzeltildi: Named import kullanıldı
 
 const LeftComp = () => {
   const feeds = [
     { icon: <FaHome />, text: "Home", link: "/" },
     { icon: <FaFire />, text: "Popular", link: "/popular" },
-    { icon: <FaArrowUp />, text: "Top Communities", link: "/top" },
+    { icon: <FaArrowUp />, text: "Top Communities", link: "/topCommunities" },
     { icon: <FaEnvelope />, text: "Messages", link: "/messages" },
     { icon: <FaUserPlus />, text: "Sign Up", link: "/signup" },
   ];
@@ -69,17 +69,19 @@ const LeftComp = () => {
         </h3>
         <div className="space-y-0.5">
           {topics.map((topic, index) => (
-            <Link href={`/topic/${topic.name}`} key={index}>
+            <Link href={`/topic/${topic.name}`} key={topic.id}>
               <motion.div
                 className="w-full flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
               >
-                <span className="text-xl">{topic.icon}</span>
+                <span className="text-xl" style={{ color: topic.color }}>
+                  {topic.icon}
+                </span>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{topic.name}</span>
                   <span className="text-xs text-gray-500">
-                    {topic.memberCount} members
+                    {topic.description}
                   </span>
                 </div>
               </motion.div>

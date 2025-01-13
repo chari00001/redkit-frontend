@@ -1,0 +1,42 @@
+export const liveStreams = [
+  {
+    id: 1,
+    user_id: 1,
+    title: "Yeni Teknolojiler Hakkında Sohbet",
+    status: "live",
+    started_at: "2024-01-21T18:00:00Z",
+    ended_at: null,
+  },
+  {
+    id: 2,
+    user_id: 3,
+    title: "Oyun İncelemesi: Cyberpunk 2077",
+    status: "ended",
+    started_at: "2024-01-21T15:00:00Z",
+    ended_at: "2024-01-21T17:30:00Z",
+  },
+  {
+    id: 3,
+    user_id: 2,
+    title: "Spor Haberleri Canlı Yayını",
+    status: "live",
+    started_at: "2024-01-21T19:00:00Z",
+    ended_at: null,
+  },
+  {
+    id: 4,
+    user_id: 4,
+    title: "Sanat Tarihi Dersleri",
+    status: "ended",
+    started_at: "2024-01-20T14:00:00Z",
+    ended_at: "2024-01-20T16:00:00Z",
+  },
+  {
+    id: 5,
+    user_id: 1,
+    title: "Yazılım Geliştirme İpuçları",
+    status: "ended",
+    started_at: "2024-01-19T20:00:00Z",
+    ended_at: "2024-01-19T22:00:00Z",
+  },
+];

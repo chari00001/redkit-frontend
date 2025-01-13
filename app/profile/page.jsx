@@ -1,9 +1,14 @@
 "use client";
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { FaEdit, FaMapMarkerAlt, FaBirthdayCake, FaRegCalendarAlt } from 'react-icons/fa';
-import PostCard from '@/components/PostComponents/PostCard';
+import React from "react";
+import { motion } from "framer-motion";
+import {
+  FaEdit,
+  FaMapMarkerAlt,
+  FaBirthdayCake,
+  FaRegCalendarAlt,
+} from "react-icons/fa";
+import PostCard from "@/components/PostComponents/PostCard";
 
 const mockUser = {
   username: "JohnDoe",
@@ -17,7 +22,7 @@ const mockUser = {
   verified: true,
   post_count: 142,
   account_status: "active",
-  subscription_level: "premium"
+  subscription_level: "premium",
 };
 
 const mockPosts = [
@@ -26,19 +31,41 @@ const mockPosts = [
     title: "My thoughts on the latest gaming trends",
     content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
     upvotes: 1234,
-    comments: 89,
-    created_at: "2023-10-15",
-    author: mockUser
+    comments_count: 89,
+    created_at: new Date("2023-10-15").toISOString(),
+    media_url: null,
+    tags: ["gaming", "technology"],
+    author: mockUser,
+    community: {
+      id: 1,
+      name: "Gaming",
+      icon: "🎮",
+    },
+    is_saved: false,
+    is_upvoted: false,
+    allow_comments: true,
+    visibility: "public",
   },
   {
     id: 2,
     title: "Check out my new setup!",
     content: "Just upgraded my battlestation...",
     upvotes: 2456,
-    comments: 156,
-    created_at: "2023-10-10",
-    author: mockUser
-  }
+    comments_count: 156,
+    created_at: new Date("2023-10-10").toISOString(),
+    media_url: "https://picsum.photos/800/400",
+    tags: ["setup", "gaming", "technology"],
+    author: mockUser,
+    community: {
+      id: 2,
+      name: "Battlestations",
+      icon: "💻",
+    },
+    is_saved: false,
+    is_upvoted: true,
+    allow_comments: true,
+    visibility: "public",
+  },
 ];
 
 const Profile = () => {
@@ -46,9 +73,9 @@ const Profile = () => {
     <div className="min-h-screen bg-gray-100 pt-14">
       {/* Cover Image */}
       <div className="h-48 bg-gradient-to-r from-orange-400 to-orange-600 relative">
-        <img 
-          src="https://picsum.photos/1920/400" 
-          alt="Cover" 
+        <img
+          src="https://picsum.photos/1920/400"
+          alt="Cover"
           className="w-full h-full object-cover"
         />
       </div>
@@ -59,8 +86,8 @@ const Profile = () => {
           <div className="flex items-start gap-6">
             {/* Profile Picture */}
             <div className="relative">
-              <img 
-                src={mockUser.profile_picture_url} 
+              <img
+                src={mockUser.profile_picture_url}
                 alt={mockUser.username}
                 className="w-32 h-32 rounded-full border-4 border-white shadow-lg"
               />
@@ -91,7 +118,8 @@ const Profile = () => {
                   <FaMapMarkerAlt /> {mockUser.location}
                 </span>
                 <span className="flex items-center gap-2">
-                  <FaBirthdayCake /> Joined {new Date(mockUser.created_at).toLocaleDateString()}
+                  <FaBirthdayCake /> Joined{" "}
+                  {new Date(mockUser.created_at).toLocaleDateString()}
                 </span>
                 <span className="flex items-center gap-2">
                   <FaRegCalendarAlt /> {mockUser.post_count} posts
@@ -104,11 +132,8 @@ const Profile = () => {
         {/* Posts Section */}
         <div className="mt-6 space-y-4">
           <h2 className="text-xl font-bold text-gray-800">Posts</h2>
-          {mockPosts.map(post => (
-            <PostCard 
-              key={post.id}
-              text={post.content}
-            />
+          {mockPosts.map((post) => (
+            <PostCard key={post.id} {...post} />
           ))}
         </div>
       </div>

@@ -1,65 +1,157 @@
 "use client";
 
-import React from 'react';
-import PostCard from '@/components/PostComponents/PostCard';
-import PopularSlider from '@/components/PopularSlider/PopularSlider';
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { FaFire, FaChartLine, FaClock, FaFilter } from "react-icons/fa";
+import PostCard from "@/components/PostComponents/PostCard";
+import PopularSlider from "@/components/PopularSlider/PopularSlider";
+import { posts } from "@/mockData/posts";
 
-const mockPopularPosts = [
+const SORT_OPTIONS = [
   {
-    id: 1,
-    title: "The Future of AI",
-    content: "Artificial Intelligence is revolutionizing every industry...",
-    upvotes: 15234,
-    comments: 1245,
-    created_at: "2023-10-18",
-    author: {
-      username: "AIEnthusiast",
-      profile_picture_url: "https://i.pravatar.cc/302"
-    }
+    id: "upvotes",
+    name: "En Çok Beğenilen",
+    icon: <FaFire className="text-orange-500" />,
   },
   {
-    id: 2, 
-    title: "Web Development Trends 2024",
-    content: "Here are the top web development trends to watch out for...",
-    upvotes: 12567,
-    comments: 834,
-    created_at: "2023-10-17",
-    author: {
-      username: "WebDev_Pro",
-      profile_picture_url: "https://i.pravatar.cc/303"
-    }
+    id: "comments",
+    name: "En Çok Yorumlanan",
+    icon: <FaChartLine className="text-blue-500" />,
   },
   {
-    id: 3,
-    title: "Beginner's Guide to Crypto",
-    content: "Everything you need to know about cryptocurrency as a beginner...", 
-    upvotes: 10892,
-    comments: 756,
-    created_at: "2023-10-16",
-    author: {
-      username: "CryptoGuru",
-      profile_picture_url: "https://i.pravatar.cc/304"
-    }
-  }
+    id: "newest",
+    name: "En Yeni",
+    icon: <FaClock className="text-green-500" />,
+  },
+];
+
+const TIME_FILTERS = [
+  { id: "today", name: "Bugün" },
+  { id: "week", name: "Bu Hafta" },
+  { id: "month", name: "Bu Ay" },
+  { id: "year", name: "Bu Yıl" },
 ];
 
 const Popular = () => {
+  const [sortBy, setSortBy] = useState("upvotes");
+  const [timeFilter, setTimeFilter] = useState("week");
+  const [popularPosts, setPopularPosts] = useState([]);
+
+  useEffect(() => {
+    // Gönderileri sırala
+    const sorted = [...posts].sort((a, b) => {
+      switch (sortBy) {
+        case "upvotes":
+          return b.upvotes - a.upvotes;
+        case "comments":
+          return b.comments - a.comments;
+        case "newest":
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        default:
+          return 0;
+      }
+    });
+
+    setPopularPosts(sorted);
+  }, [sortBy, timeFilter]);
+
   return (
     <div className="min-h-screen bg-gray-100 pt-14">
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="py-6 flex gap-6">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Popular Posts</h1>
-            <div className="space-y-4">
-              {mockPopularPosts.map(post => (
-                <PostCard
-                  key={post.id}
-                  text={post.content}
-                />
+      <div className="max-w-6xl mx-auto px-4">
+        {/* Header */}
+        <div className="py-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Popüler Gönderiler
+          </h1>
+          <p className="text-gray-600">
+            Redit'in en popüler ve trend olan gönderileri
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Sort Options */}
+            <div className="flex gap-2 flex-wrap">
+              {SORT_OPTIONS.map((option) => (
+                <motion.button
+                  key={option.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSortBy(option.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                    sortBy === option.id
+                      ? "bg-accent text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {option.icon}
+                  <span>{option.name}</span>
+                </motion.button>
               ))}
             </div>
+
+            {/* Time Filter */}
+            <div className="flex items-center gap-2 ml-auto">
+              <FaFilter className="text-gray-400" />
+              <select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="bg-gray-50 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                {TIME_FILTERS.map((filter) => (
+                  <option key={filter.id} value={filter.id}>
+                    {filter.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <PopularSlider />
+        </div>
+
+        <div className="flex gap-6">
+          {/* Main Content */}
+          <div className="flex-1">
+            {popularPosts.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-xl shadow-sm">
+                <FaFire className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  Henüz gönderi yok
+                </h3>
+                <p className="text-gray-500">
+                  Seçilen zaman aralığında popüler gönderi bulunamadı.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {popularPosts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    title={post.title}
+                    content={post.content}
+                    media_url={post.media_url}
+                    author={post.author}
+                    likes_count={post.upvotes}
+                    comments_count={post.comments}
+                    created_at={post.created_at}
+                    tags={post.tags}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="hidden lg:block w-80">
+            <div className="bg-white rounded-xl shadow-sm p-4 sticky top-20">
+              <h3 className="font-semibold text-gray-900 mb-4">
+                Trend Topluluklar
+              </h3>
+              <PopularSlider />
+            </div>
+          </div>
         </div>
       </div>
     </div>

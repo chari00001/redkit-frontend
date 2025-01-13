@@ -1,6 +1,6 @@
 import React from "react";
 import { FaUsers, FaGamepad, FaMusic, FaFilm, FaCode } from "react-icons/fa";
-import communities from "@/mockData/communities";
+import { communities } from "@/mockData/communities";
 
 const PopularCommunities = () => {
   return (
