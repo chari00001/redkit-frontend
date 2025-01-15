@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub, FaApple, FaTimes, FaEye, FaEyeSlash } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDispatch, useSelector } from "react-redux";
+import { registerUser, loginUser, setError } from "@/store/features/authSlice";
 
 const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
-  const [mode, setMode] = useState(initialMode); // 'login' or 'register'
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.auth);
+
+  const [mode, setMode] = useState(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -16,6 +21,16 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     agreeToTerms: false,
   });
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  useEffect(() => {
+    if (error) {
+      setErrors((prev) => ({ ...prev, submit: error }));
+    }
+  }, [error]);
 
   if (!isOpen) return null;
 
@@ -54,11 +69,37 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      // Form geçerliyse işlem yap
-      console.log("Form data:", formData);
+      if (mode === "register") {
+        dispatch(
+          registerUser({
+            email: formData.email,
+            username: formData.username,
+            password: formData.password,
+          })
+        );
+      } else {
+        dispatch(
+          loginUser({
+            email: formData.email,
+            password: formData.password,
+          })
+        );
+      }
+
+      // Başarılı giriş/kayıt durumunda modalı kapat
+      if (!error) {
+        onClose();
+        setFormData({
+          email: "",
+          username: "",
+          password: "",
+          confirmPassword: "",
+          agreeToTerms: false,
+        });
+      }
     }
   };
 
@@ -71,6 +112,10 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     // Hata varsa temizle
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    // Global error'ı temizle
+    if (error) {
+      dispatch(setError(null));
     }
   };
 
@@ -136,6 +181,17 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
             </p>
           </div>
 
+          {/* Error Message */}
+          {errors.submit && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 p-3 bg-red-50 text-red-500 rounded-lg text-sm text-center"
+            >
+              {errors.submit}
+            </motion.div>
+          )}
+
           {/* Social Login Buttons */}
           <div className="grid grid-cols-1 gap-3 mb-6">
             {socialButtons.map((button) => (
@@ -174,6 +230,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                     errors.email ? "ring-2 ring-red-500" : ""
                   }`}
+                  disabled={loading}
                 />
               </div>
               {errors.email && (
@@ -193,6 +250,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                     className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                       errors.username ? "ring-2 ring-red-500" : ""
                     }`}
+                    disabled={loading}
                   />
                 </div>
                 {errors.username && (
@@ -212,6 +270,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                     errors.password ? "ring-2 ring-red-500" : ""
                   }`}
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -243,6 +302,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                       className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                         errors.confirmPassword ? "ring-2 ring-red-500" : ""
                       }`}
+                      disabled={loading}
                     />
                   </div>
                   {errors.confirmPassword && (
@@ -260,6 +320,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                     checked={formData.agreeToTerms}
                     onChange={handleChange}
                     className="mt-1"
+                    disabled={loading}
                   />
                   <label
                     htmlFor="agreeToTerms"
@@ -287,9 +348,28 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              className="w-full bg-accent text-white py-3 px-4 rounded-xl font-medium hover:bg-accent/90 transition-colors"
+              className="w-full bg-accent text-white py-3 px-4 rounded-xl font-medium hover:bg-accent/90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={loading}
             >
-              {mode === "login" ? "Giriş Yap" : "Hesap Oluştur"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <motion.span
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  >
+                    ⏳
+                  </motion.span>
+                  {mode === "login" ? "Giriş yapılıyor..." : "Kaydediliyor..."}
+                </span>
+              ) : mode === "login" ? (
+                "Giriş Yap"
+              ) : (
+                "Hesap Oluştur"
+              )}
             </motion.button>
           </form>
 
@@ -299,7 +379,11 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
               ? "Hesabınız yok mu? "
               : "Zaten hesabınız var mı? "}
             <button
-              onClick={() => setMode(mode === "login" ? "register" : "login")}
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setErrors({});
+                dispatch(setError(null));
+              }}
               className="text-accent hover:underline font-medium"
             >
               {mode === "login" ? "Hesap Oluştur" : "Giriş Yap"}

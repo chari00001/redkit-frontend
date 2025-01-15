@@ -21,6 +21,26 @@ export const getCommunityPosts = createAsyncThunk(
   }
 );
 
+// Async thunk for fetching a single post by ID
+export const getPostById = createAsyncThunk(
+  "posts/getPostById",
+  async (postId) => {
+    try {
+      // Simulating API call delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const post = posts.find((p) => p.id === postId);
+      if (!post) {
+        throw new Error("Gönderi bulunamadı");
+      }
+
+      return post;
+    } catch (error) {
+      throw error;
+    }
+  }
+);
+
 const initialState = {
   posts: [],
   userPosts: [],
@@ -64,6 +84,7 @@ const postsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // getCommunityPosts cases
       .addCase(getCommunityPosts.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -76,6 +97,22 @@ const postsSlice = createSlice({
       .addCase(getCommunityPosts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+      })
+      // getPostById cases
+      .addCase(getPostById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.currentPost = null;
+      })
+      .addCase(getPostById.fulfilled, (state, action) => {
+        state.currentPost = action.payload;
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(getPostById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+        state.currentPost = null;
       });
   },
 });

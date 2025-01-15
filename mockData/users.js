@@ -1,6 +1,30 @@
 // mockData/users.js
 export const users = [
   {
+    id: 303,
+    username: "chari00001",
+    password: "42464246", // Hashlenmis parola
+    email: "cagrilacin303@gmail.com",
+    role: "admin",
+    profile_picture_url: "https://i.pravatar.cc/300",
+    bio: "Reddit enthusiast | Gamer | Developer",
+    location: "San Francisco, CA",
+    date_of_birth: "1990-05-15",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-21T15:30:00Z",
+    is_verified: true,
+    last_login: "2024-01-21T15:30:00Z",
+    notification_preferences: {
+      email: true,
+      push: true,
+      mentions: true,
+    },
+    post_count: 25,
+    account_status: "active",
+    subscription_level: "premium",
+    subscription_expiration: "2024-12-31",
+  },
+  {
     id: 1,
     username: "JohnDoe",
     password: "$2a$10$xJwL5d8j5f5d8j5f5d8j5f", // Hashlenmis parola
