@@ -1,34 +1,83 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { communities } from "@/mockData/communities";
+import { communityService } from "@/services/apiService";
 
-// Async thunk for fetching a community by name
-export const getCommunityById = createAsyncThunk(
-  "communities/getCommunityById",
-  async (communityName) => {
+// Tüm toplulukları getir
+export const fetchAllCommunities = createAsyncThunk(
+  "communities/fetchAllCommunities",
+  async (params = {}, { rejectWithValue }) => {
     try {
-      // Simulating API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const community = communities.find(
-        (c) => c.name.toLowerCase() === communityName.toLowerCase()
-      );
-
-      if (!community) {
-        throw new Error("Topluluk bulunamadı");
-      }
-
-      return community;
+      return await communityService.getAllCommunities(params);
     } catch (error) {
-      throw error;
+      return rejectWithValue(error.message);
     }
   }
 );
 
+// Topluluk detaylarını getir
+export const fetchCommunityById = createAsyncThunk(
+  "communities/fetchCommunityById",
+  async (communityId, { rejectWithValue }) => {
+    try {
+      return await communityService.getCommunityById(communityId);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Kullanıcının topluluklarını getir
+export const fetchUserCommunities = createAsyncThunk(
+  "communities/fetchUserCommunities",
+  async (userId, { rejectWithValue }) => {
+    try {
+      return await communityService.getUserCommunities(userId);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Yeni topluluk oluştur
+export const createCommunity = createAsyncThunk(
+  "communities/createCommunity",
+  async (communityData, { rejectWithValue }) => {
+    try {
+      return await communityService.createCommunity(communityData);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Topluluğa katıl
+export const joinCommunity = createAsyncThunk(
+  "communities/joinCommunity",
+  async (communityId, { rejectWithValue }) => {
+    try {
+      return await communityService.joinCommunity(communityId);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Topluluktan ayrıl
+export const leaveCommunity = createAsyncThunk(
+  "communities/leaveCommunity",
+  async (communityId, { rejectWithValue }) => {
+    try {
+      return await communityService.leaveCommunity(communityId);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Başlangıç durumu
 const initialState = {
-  communities: [],
+  items: [],
   userCommunities: [],
   currentCommunity: null,
-  popularCommunities: [],
   loading: false,
   error: null,
 };
@@ -37,59 +86,115 @@ const communitiesSlice = createSlice({
   name: "communities",
   initialState,
   reducers: {
-    setCommunities: (state, action) => {
-      state.communities = action.payload;
-      state.loading = false;
-      state.error = null;
-    },
-    setUserCommunities: (state, action) => {
-      state.userCommunities = action.payload;
-      state.loading = false;
-      state.error = null;
-    },
-    setCurrentCommunity: (state, action) => {
-      state.currentCommunity = action.payload;
-      state.loading = false;
-      state.error = null;
-    },
-    setPopularCommunities: (state, action) => {
-      state.popularCommunities = action.payload;
-      state.loading = false;
-      state.error = null;
-    },
     setLoading: (state, action) => {
       state.loading = action.payload;
     },
-    setError: (state, action) => {
-      state.error = action.payload;
-      state.loading = false;
+    clearError: (state) => {
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(getCommunityById.pending, (state) => {
+      // Tüm toplulukları getir
+      .addCase(fetchAllCommunities.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(getCommunityById.fulfilled, (state, action) => {
-        state.currentCommunity = action.payload;
+      .addCase(fetchAllCommunities.fulfilled, (state, action) => {
         state.loading = false;
+        state.items = action.payload.communities || action.payload || [];
+      })
+      .addCase(fetchAllCommunities.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Topluluk detaylarını getir
+      .addCase(fetchCommunityById.pending, (state) => {
+        state.loading = true;
         state.error = null;
       })
-      .addCase(getCommunityById.rejected, (state, action) => {
+      .addCase(fetchCommunityById.fulfilled, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.currentCommunity = action.payload;
+      })
+      .addCase(fetchCommunityById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Kullanıcının topluluklarını getir
+      .addCase(fetchUserCommunities.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserCommunities.fulfilled, (state, action) => {
+        state.loading = false;
+        state.userCommunities = action.payload.communities || action.payload || [];
+      })
+      .addCase(fetchUserCommunities.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Yeni topluluk oluştur
+      .addCase(createCommunity.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createCommunity.fulfilled, (state, action) => {
+        state.loading = false;
+        const newCommunity = action.payload.community || action.payload;
+        state.items = [newCommunity, ...state.items];
+        state.userCommunities = [newCommunity, ...state.userCommunities];
+      })
+      .addCase(createCommunity.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Topluluğa katıl
+      .addCase(joinCommunity.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(joinCommunity.fulfilled, (state, action) => {
+        state.loading = false;
+        if (state.currentCommunity) {
+          state.currentCommunity.is_member = true;
+          state.currentCommunity.member_count += 1;
+        }
+      })
+      .addCase(joinCommunity.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Topluluktan ayrıl
+      .addCase(leaveCommunity.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(leaveCommunity.fulfilled, (state, action) => {
+        state.loading = false;
+        const communityId = action.meta.arg;
+        
+        if (state.currentCommunity && state.currentCommunity.id === communityId) {
+          state.currentCommunity.is_member = false;
+          state.currentCommunity.member_count -= 1;
+        }
+        
+        // Kullanıcının toplulukları listesinden çıkar
+        state.userCommunities = state.userCommunities.filter(
+          (community) => community.id !== communityId
+        );
+      })
+      .addCase(leaveCommunity.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
 
-export const {
-  setCommunities,
-  setUserCommunities,
-  setCurrentCommunity,
-  setPopularCommunities,
-  setLoading,
-  setError,
-} = communitiesSlice.actions;
-
+export const { setLoading, clearError } = communitiesSlice.actions;
 export default communitiesSlice.reducer;

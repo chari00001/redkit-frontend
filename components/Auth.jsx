@@ -5,11 +5,11 @@ import { FcGoogle } from "react-icons/fc";
 import { FaGithub, FaApple, FaTimes, FaEye, FaEyeSlash } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
-import { registerUser, loginUser, setError } from "@/store/features/authSlice";
+import { register, login, setError } from "@/store/features/authSlice";
 
 const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const { loading, error, isLoggedIn } = useSelector((state) => state.auth);
 
   const [mode, setMode] = useState(initialMode);
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +21,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     agreeToTerms: false,
   });
   const [errors, setErrors] = useState({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
@@ -32,7 +33,27 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     }
   }, [error]);
 
+  // Close modal when successfully logged in
+  useEffect(() => {
+    if (isLoggedIn && submitAttempted) {
+      onClose();
+      resetForm();
+    }
+  }, [isLoggedIn, submitAttempted]);
+
   if (!isOpen) return null;
+
+  const resetForm = () => {
+    setFormData({
+      email: "",
+      username: "",
+      password: "",
+      confirmPassword: "",
+      agreeToTerms: false,
+    });
+    setErrors({});
+    setSubmitAttempted(false);
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -71,34 +92,78 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitAttempted(true);
+    
     if (validateForm()) {
-      if (mode === "register") {
-        dispatch(
-          registerUser({
+      try {
+        if (mode === "register") {
+          console.log("Registering user:", {
             email: formData.email,
             username: formData.username,
             password: formData.password,
-          })
-        );
-      } else {
-        dispatch(
-          loginUser({
+          });
+          
+          // Yükleniyor durumunu güncelle
+          setErrors((prev) => ({ ...prev, submit: null }));
+          
+          // Belirli sayıda deneme yapıyoruz (en fazla 2 deneme)
+          let attempt = 0;
+          let success = false;
+          let lastError;
+          
+          while (attempt < 2 && !success) {
+            try {
+              await dispatch(
+                register({
+                  email: formData.email,
+                  username: formData.username,
+                  password: formData.password,
+                })
+              ).unwrap();
+              success = true;
+              console.log("Registration successful");
+            } catch (attemptError) {
+              attempt++;
+              lastError = attemptError;
+              console.error(`Register attempt ${attempt} failed:`, attemptError);
+              
+              if (attempt < 2) {
+                // Kullanıcıya bilgi ver ve 1.5 saniye bekle
+                setErrors((prev) => ({ 
+                  ...prev, 
+                  submit: `Kayıt işlemi başarısız oldu. Tekrar deneniyor (${attempt}/2)...` 
+                }));
+                await new Promise(resolve => setTimeout(resolve, 1500));
+              }
+            }
+          }
+          
+          if (!success && lastError) {
+            throw lastError;
+          }
+        } else {
+          console.log("Logging in user:", {
             email: formData.email,
             password: formData.password,
-          })
-        );
-      }
-
-      // Başarılı giriş/kayıt durumunda modalı kapat
-      if (!error) {
-        onClose();
-        setFormData({
-          email: "",
-          username: "",
-          password: "",
-          confirmPassword: "",
-          agreeToTerms: false,
-        });
+          });
+          
+          await dispatch(
+            login({
+              email: formData.email,
+              password: formData.password,
+            })
+          ).unwrap();
+          
+          // Successful login - closure will happen via effect
+          console.log("Login successful");
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+        setErrors((prev) => ({ 
+          ...prev, 
+          submit: error.message || "İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin." 
+        }));
+        // Error already handled by the rejected action
       }
     }
   };
