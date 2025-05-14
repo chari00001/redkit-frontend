@@ -6,20 +6,24 @@ export const login = createAsyncThunk(
   "auth/login",
   async (credentials, { rejectWithValue }) => {
     try {
-      console.log('Sending login request with:', credentials);
+      console.log("Sending login request with:", credentials);
       const response = await userService.login(credentials);
-      console.log('Login response from API:', response); // Debug log
-      
+      console.log("Login response from API:", response); // Debug log
+
       // API yanıtında user ve token var mı kontrol et
       if (!response.user || !response.token) {
-        console.error('Invalid API response format:', response);
-        return rejectWithValue('Sunucudan geçersiz yanıt alındı. Lütfen daha sonra tekrar deneyin.');
+        console.error("Invalid API response format:", response);
+        return rejectWithValue(
+          "Sunucudan geçersiz yanıt alındı. Lütfen daha sonra tekrar deneyin."
+        );
       }
-      
+
       return response;
     } catch (error) {
-      console.error('Login error in thunk:', error); // Debug log
-      return rejectWithValue(error.message || 'Giriş yapılırken bir hata oluştu.');
+      console.error("Login error in thunk:", error); // Debug log
+      return rejectWithValue(
+        error.message || "Giriş yapılırken bir hata oluştu."
+      );
     }
   }
 );
@@ -29,20 +33,22 @@ export const register = createAsyncThunk(
   "auth/register",
   async (userData, { rejectWithValue }) => {
     try {
-      console.log('Sending register request with:', userData);
+      console.log("Sending register request with:", userData);
       const response = await userService.register(userData);
-      console.log('Register response from API:', response); // Debug log
-      
+      console.log("Register response from API:", response); // Debug log
+
       // API yanıtında user ve token var mı kontrol et
       if (!response.user || !response.token) {
-        console.error('Invalid API response format:', response);
-        return rejectWithValue('Sunucudan geçersiz yanıt alındı. Lütfen daha sonra tekrar deneyin.');
+        console.error("Invalid API response format:", response);
+        return rejectWithValue(
+          "Sunucudan geçersiz yanıt alındı. Lütfen daha sonra tekrar deneyin."
+        );
       }
-      
+
       return response;
     } catch (error) {
-      console.error('Register error in thunk:', error); // Debug log
-      return rejectWithValue(error.message || 'Kayıt olurken bir hata oluştu.');
+      console.error("Register error in thunk:", error); // Debug log
+      return rejectWithValue(error.message || "Kayıt olurken bir hata oluştu.");
     }
   }
 );
@@ -161,6 +167,41 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       saveState(state);
+
+      // LocalStorage'dan token'ı da temizle
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+      }
+    },
+    // Kullanıcı girişi başarılı - userService ile doğrudan giriş için
+    loginSuccess: (state, action) => {
+      const { token, user } = action.payload;
+
+      if (user && token) {
+        state.currentUser = user;
+        state.token = token;
+        state.isLoggedIn = true;
+        state.loading = false;
+        state.error = null;
+        saveState(state);
+      } else {
+        state.error = "Geçersiz kullanıcı verisi veya token.";
+      }
+    },
+    // Kullanıcı kaydı başarılı - userService ile doğrudan kayıt için
+    registerSuccess: (state, action) => {
+      const { token, user } = action.payload;
+
+      if (user && token) {
+        state.currentUser = user;
+        state.token = token;
+        state.isLoggedIn = true;
+        state.loading = false;
+        state.error = null;
+        saveState(state);
+      } else {
+        state.error = "Geçersiz kullanıcı verisi veya token.";
+      }
     },
   },
   extraReducers: (builder) => {
@@ -174,7 +215,7 @@ const authSlice = createSlice({
         // Handle both {user: {...}, token: '...'} and direct object formats
         const user = action.payload.user || null;
         const token = action.payload.token || null;
-        
+
         if (user && token) {
           state.currentUser = user;
           state.token = token;
@@ -191,7 +232,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      
+
       // Register
       .addCase(register.pending, (state) => {
         state.loading = true;
@@ -201,7 +242,7 @@ const authSlice = createSlice({
         // Handle both {user: {...}, token: '...'} and direct object formats
         const user = action.payload.user || null;
         const token = action.payload.token || null;
-        
+
         if (user && token) {
           state.currentUser = user;
           state.token = token;
@@ -218,7 +259,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      
+
       // Fetch user profile
       .addCase(fetchUserProfile.pending, (state) => {
         state.loading = true;
@@ -226,20 +267,20 @@ const authSlice = createSlice({
       })
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
         const user = action.payload;
-        
+
         // Kullanıcı listesinde mevcut kullanıcıyı güncelle
-        const userIndex = state.users.findIndex(u => u.id === user.id);
+        const userIndex = state.users.findIndex((u) => u.id === user.id);
         if (userIndex !== -1) {
           state.users[userIndex] = user;
         } else {
           state.users.push(user);
         }
-        
+
         // Eğer giriş yapmış kullanıcı ise currentUser'ı da güncelle
         if (state.currentUser && state.currentUser.id === user.id) {
           state.currentUser = user;
         }
-        
+
         state.loading = false;
         state.error = null;
         saveState(state);
@@ -248,7 +289,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      
+
       // Update user profile
       .addCase(updateUserProfile.pending, (state) => {
         state.loading = true;
@@ -256,18 +297,18 @@ const authSlice = createSlice({
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
         const updatedUser = action.payload;
-        
+
         // Kullanıcı listesinde mevcut kullanıcıyı güncelle
-        const userIndex = state.users.findIndex(u => u.id === updatedUser.id);
+        const userIndex = state.users.findIndex((u) => u.id === updatedUser.id);
         if (userIndex !== -1) {
           state.users[userIndex] = updatedUser;
         }
-        
+
         // Eğer giriş yapmış kullanıcı ise currentUser'ı da güncelle
         if (state.currentUser && state.currentUser.id === updatedUser.id) {
           state.currentUser = updatedUser;
         }
-        
+
         state.loading = false;
         state.error = null;
         saveState(state);
@@ -279,6 +320,12 @@ const authSlice = createSlice({
   },
 });
 
-export const { setLoading, setError, logoutUser } = authSlice.actions;
+export const {
+  setLoading,
+  setError,
+  logoutUser,
+  loginSuccess,
+  registerSuccess,
+} = authSlice.actions;
 
 export default authSlice.reducer;

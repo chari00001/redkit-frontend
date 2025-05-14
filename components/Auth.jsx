@@ -4,12 +4,17 @@ import React, { useState, useEffect } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub, FaApple, FaTimes, FaEye, FaEyeSlash } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDispatch, useSelector } from "react-redux";
-import { register, login, setError } from "@/store/features/authSlice";
+import { userService } from "@/services/userService";
+import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { loginSuccess, registerSuccess } from "@/store/features/authSlice";
 
 const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
+  const router = useRouter();
   const dispatch = useDispatch();
-  const { loading, error, isLoggedIn } = useSelector((state) => state.auth);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const [mode, setMode] = useState(initialMode);
   const [showPassword, setShowPassword] = useState(false);
@@ -93,51 +98,79 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitAttempted(true);
-    
+
     if (validateForm()) {
       try {
+        setLoading(true);
+        setError(null);
+
         if (mode === "register") {
           console.log("Registering user:", {
             email: formData.email,
             username: formData.username,
             password: formData.password,
           });
-          
+
           // Yükleniyor durumunu güncelle
           setErrors((prev) => ({ ...prev, submit: null }));
-          
+
           // Belirli sayıda deneme yapıyoruz (en fazla 2 deneme)
           let attempt = 0;
           let success = false;
           let lastError;
-          
+
           while (attempt < 2 && !success) {
             try {
-              await dispatch(
-                register({
-                  email: formData.email,
-                  username: formData.username,
-                  password: formData.password,
-                })
-              ).unwrap();
-              success = true;
-              console.log("Registration successful");
+              const response = await userService.auth.register({
+                email: formData.email,
+                username: formData.username,
+                password: formData.password,
+              });
+
+              if (response.success) {
+                success = true;
+                console.log("Registration successful");
+
+                // Token'ı localStorage'a kaydet
+                if (response.token) {
+                  localStorage.setItem("token", response.token);
+                  setIsLoggedIn(true);
+
+                  // Redux store'a kullanıcı verilerini kaydet
+                  dispatch(
+                    registerSuccess({
+                      token: response.token,
+                      user: response.user,
+                    })
+                  );
+
+                  // Ana sayfaya yönlendir
+                  router.push("/");
+                }
+              } else {
+                throw new Error(
+                  response.message || "Kayıt işlemi başarısız oldu."
+                );
+              }
             } catch (attemptError) {
               attempt++;
               lastError = attemptError;
-              console.error(`Register attempt ${attempt} failed:`, attemptError);
-              
+              console.error(
+                `Register attempt ${attempt} failed:`,
+                attemptError
+              );
+
               if (attempt < 2) {
                 // Kullanıcıya bilgi ver ve 1.5 saniye bekle
-                setErrors((prev) => ({ 
-                  ...prev, 
-                  submit: `Kayıt işlemi başarısız oldu. Tekrar deneniyor (${attempt}/2)...` 
+                setErrors((prev) => ({
+                  ...prev,
+                  submit: `Kayıt işlemi başarısız oldu. Tekrar deneniyor (${attempt}/2)...`,
                 }));
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                await new Promise((resolve) => setTimeout(resolve, 1500));
               }
             }
           }
-          
+
           if (!success && lastError) {
             throw lastError;
           }
@@ -146,24 +179,54 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
             email: formData.email,
             password: formData.password,
           });
-          
-          await dispatch(
-            login({
-              email: formData.email,
-              password: formData.password,
-            })
-          ).unwrap();
-          
-          // Successful login - closure will happen via effect
-          console.log("Login successful");
+
+          const response = await userService.auth.login({
+            email: formData.email,
+            password: formData.password,
+          });
+
+          console.log("Login response:", response);
+
+          if (response && response.success) {
+            // Token'ı localStorage'a kaydet
+            if (response.token) {
+              localStorage.setItem("token", response.token);
+              setIsLoggedIn(true);
+
+              // Redux store'a kullanıcı verilerini kaydet
+              dispatch(
+                loginSuccess({
+                  token: response.token,
+                  user: response.user,
+                })
+              );
+
+              // Başarılı giriş - onClose effect ile çalışacak
+              console.log("Login successful");
+
+              // Ana sayfaya yönlendir
+              router.push("/");
+            } else {
+              throw new Error("Giriş başarılı ancak token bulunamadı.");
+            }
+          } else {
+            throw new Error(
+              response?.message ||
+                "Giriş başarısız. Lütfen e-posta ve şifrenizi kontrol edin."
+            );
+          }
         }
       } catch (error) {
         console.error("Auth error:", error);
-        setErrors((prev) => ({ 
-          ...prev, 
-          submit: error.message || "İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin." 
+        setErrors((prev) => ({
+          ...prev,
+          submit:
+            error.message ||
+            "İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.",
         }));
-        // Error already handled by the rejected action
+        setError(null); // Çelişkiyi önlemek için global error'ı temizle
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -180,7 +243,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     }
     // Global error'ı temizle
     if (error) {
-      dispatch(setError(null));
+      setError(null);
     }
   };
 
@@ -447,7 +510,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
                 setErrors({});
-                dispatch(setError(null));
+                setError(null);
               }}
               className="text-accent hover:underline font-medium"
             >

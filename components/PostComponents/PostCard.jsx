@@ -80,10 +80,22 @@ const PostCard = ({
     return count.toString();
   };
 
-  const timeAgo = formatDistanceToNow(new Date(created_at), {
-    addSuffix: true,
-    locale: tr,
-  });
+  const timeAgo = React.useMemo(() => {
+    try {
+      // Eğer created_at undefined, null, geçersiz tarih ise güvenli bir varsayılan değer döndür
+      if (!created_at || isNaN(new Date(created_at).getTime())) {
+        return "bilinmeyen zaman";
+      }
+
+      return formatDistanceToNow(new Date(created_at), {
+        addSuffix: true,
+        locale: tr,
+      });
+    } catch (error) {
+      console.error("Tarih biçimlendirme hatası:", error);
+      return "bilinmeyen zaman";
+    }
+  }, [created_at]);
 
   const handleImageError = (e) => {
     console.error("Resim yüklenemedi:", e.target.src);
