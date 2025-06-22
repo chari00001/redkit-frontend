@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { postService } from "@/services/apiService";
+import { postService, communityService } from "@/services/apiService";
 
 // Post listeleme
 export const fetchPosts = createAsyncThunk(
@@ -20,6 +20,22 @@ export const fetchPostById = createAsyncThunk(
     try {
       return await postService.getPostById(postId);
     } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Topluluk postlarını getirme
+export const getCommunityPosts = createAsyncThunk(
+  "posts/getCommunityPosts",
+  async (communityId, { rejectWithValue }) => {
+    try {
+      return await communityService.getCommunityPosts(communityId);
+    } catch (error) {
+      console.error(
+        `Error fetching community posts for ${communityId}:`,
+        error
+      );
       return rejectWithValue(error.message);
     }
   }
@@ -65,6 +81,7 @@ export const deletePost = createAsyncThunk(
 const initialState = {
   items: [],
   currentPost: null,
+  communityPosts: [],
   loading: false,
   error: null,
 };
@@ -78,6 +95,9 @@ const postsSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearCommunityPosts: (state) => {
+      state.communityPosts = [];
     },
   },
   extraReducers: (builder) => {
@@ -95,7 +115,7 @@ const postsSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Fetch post by id
       .addCase(fetchPostById.pending, (state) => {
         state.loading = true;
@@ -110,7 +130,23 @@ const postsSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
+      // Get community posts
+      .addCase(getCommunityPosts.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getCommunityPosts.fulfilled, (state, action) => {
+        state.loading = false;
+        state.communityPosts =
+          action.payload.posts || action.payload.data?.posts || [];
+      })
+      .addCase(getCommunityPosts.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.communityPosts = [];
+      })
+
       // Create post
       .addCase(createPost.pending, (state) => {
         state.loading = true;
@@ -125,7 +161,7 @@ const postsSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Update post
       .addCase(updatePost.pending, (state) => {
         state.loading = true;
@@ -134,13 +170,15 @@ const postsSlice = createSlice({
       .addCase(updatePost.fulfilled, (state, action) => {
         state.loading = false;
         const updatedPost = action.payload.data || action.payload;
-        
+
         // Update in items array
-        const index = state.items.findIndex(post => post.id === updatedPost.id);
+        const index = state.items.findIndex(
+          (post) => post.id === updatedPost.id
+        );
         if (index !== -1) {
           state.items[index] = updatedPost;
         }
-        
+
         // Update current post if it's the same
         if (state.currentPost && state.currentPost.id === updatedPost.id) {
           state.currentPost = updatedPost;
@@ -150,7 +188,7 @@ const postsSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Delete post
       .addCase(deletePost.pending, (state) => {
         state.loading = true;
@@ -159,7 +197,7 @@ const postsSlice = createSlice({
       .addCase(deletePost.fulfilled, (state, action) => {
         state.loading = false;
         const deletedPostId = action.meta.arg; // postId that was passed to the action
-        state.items = state.items.filter(post => post.id !== deletedPostId);
+        state.items = state.items.filter((post) => post.id !== deletedPostId);
         if (state.currentPost && state.currentPost.id === deletedPostId) {
           state.currentPost = null;
         }
@@ -171,5 +209,6 @@ const postsSlice = createSlice({
   },
 });
 
-export const { setLoading, clearError } = postsSlice.actions;
+export const { setLoading, clearError, clearCommunityPosts } =
+  postsSlice.actions;
 export default postsSlice.reducer;

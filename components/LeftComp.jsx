@@ -47,27 +47,29 @@ const LeftComp = () => {
         setUserCommunities([]);
         return;
       }
-      
+
       setLoadingCommunities(true);
       setError(null);
-      
+
       try {
-        console.log("Attempting to fetch user communities");
         // 3 saniye timeout ile API isteği yapılıyor
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Topluluklar için istek zaman aşımına uğradı")), 3000)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error("Topluluklar için istek zaman aşımına uğradı")),
+            3000
+          )
         );
-        
+
         const responsePromise = communityService.getUserCommunities();
-        
+
         // Race condition ile zaman aşımı kontrolü
         const response = await Promise.race([responsePromise, timeoutPromise]);
-        
+
         // Response her zaman bir obje içinde communities array'i içerir
         // Eğer bu yapı yoksa boş bir array kullan
         const communities = response?.communities || [];
-        console.log("Fetched communities:", communities);
-        
+
         setUserCommunities(communities);
       } catch (err) {
         console.error("Failed to load communities:", err);
@@ -78,7 +80,7 @@ const LeftComp = () => {
         setLoadingCommunities(false);
       }
     };
-    
+
     fetchCommunities();
   }, [isLoggedIn]);
 

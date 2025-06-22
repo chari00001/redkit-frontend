@@ -42,8 +42,20 @@ const CommunityPage = () => {
 
   useEffect(() => {
     if (communityName) {
-      dispatch(fetchCommunityById(communityName));
-      dispatch(getCommunityPosts(communityName));
+
+      // Community detaylarını getir (otomatik name->ID çevirimi ile)
+      dispatch(fetchCommunityById(communityName))
+        .unwrap()
+        .then((community) => {
+          // Community yüklendikten sonra postları getir
+          const communityId = community.id || communityName;
+          return dispatch(getCommunityPosts(communityId));
+        })
+        .catch((error) => {
+          console.error("Failed to load community:", error);
+          // Hata durumunda da postları denemeye devam et
+          dispatch(getCommunityPosts(communityName));
+        });
     }
   }, [dispatch, communityName]);
 

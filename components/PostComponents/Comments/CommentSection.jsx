@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,6 +9,8 @@ import {
   FaEdit,
   FaArrowUp,
   FaArrowDown,
+  FaHeart,
+  FaRegHeart,
 } from "react-icons/fa";
 import {
   addComment,
@@ -16,11 +18,16 @@ import {
   updateComment,
   likeComment,
   unlikeComment,
+  setPostComments,
 } from "@/store/features/commentsSlice";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
+import { postService, interactionService } from "@/services/apiService";
+import { rehydrateAuth } from "@/store/features/authSlice";
+import { recommenderService } from "@/services/apiService";
+import CommentItem from "./CommentItem";
 
-const CommentSection = ({ postId }) => {
+const CommentSection = ({ postId, tags = [] }) => {
   const dispatch = useDispatch();
   const { currentUser } = useSelector((state) => state.auth);
   const { comments } = useSelector((state) => state.comments);
@@ -29,234 +36,317 @@ const CommentSection = ({ postId }) => {
   const [editContent, setEditContent] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyContent, setReplyContent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingActions, setLoadingActions] = useState({});
 
   const postComments = comments
     .filter((comment) => comment.postId === postId)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const handleSubmitComment = (e) => {
+  // Auth state'ini yeniden yükle (eğer currentUser yoksa)
+  useEffect(() => {
+    if (!currentUser) {
+      dispatch(rehydrateAuth());
+    }
+  }, [currentUser, dispatch]);
+
+  // Yorumları yükle
+  useEffect(() => {
+    const loadComments = async () => {
+      try {
+        setLoading(true);
+        const response = await postService.getPostComments(postId);
+
+        if (response.success && response.data) {
+          // API response formatı: { success: true, data: { comments: [...], pagination: {...} } }
+          const commentsArray = response.data.comments || response.data || [];
+
+          // API'den gelen yorumları Redux'a kaydet
+          const commentsWithPostId = commentsArray.map((comment) => ({
+            ...comment,
+            postId: postId,
+            // Eğer user bilgisi yoksa, user_id ile temel user objesi oluştur
+            user: comment.user || {
+              id: comment.user_id,
+              username: `User${comment.user_id}`, // Fallback username
+              email: null,
+              profile_picture_url: null,
+            },
+          }));
+
+          dispatch(setPostComments({ postId, comments: commentsWithPostId }));
+        }
+      } catch (error) {
+        console.error("Yorumlar yüklenirken hata:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadComments();
+  }, [postId, dispatch]);
+
+  const handleSubmitComment = async (e) => {
     e.preventDefault();
-    if (!newComment.trim() || !currentUser) return;
 
-    dispatch(
-      addComment({
-        postId,
-        userId: currentUser.id,
+    // Auth debugging ve fallback
+    let effectiveUser = currentUser;
+
+    // Eğer Redux'ta currentUser yoksa localStorage'dan al
+    if (!effectiveUser && typeof window !== "undefined") {
+      try {
+        const authState = JSON.parse(localStorage.getItem("authState"));
+        if (authState && authState.isAuthenticated && authState.user) {
+          effectiveUser = authState.user || authState.currentUser;
+        }
+      } catch (error) {
+        console.error("Failed to parse localStorage authState:", error);
+      }
+    }
+
+    if (!newComment.trim()) {
+      alert("Lütfen bir yorum yazın.");
+      return;
+    }
+
+    if (!effectiveUser) {
+      alert("Yorum yapmak için giriş yapmanız gerekiyor.");
+      return;
+    }
+
+    if (!postId) {
+      alert("Post ID bulunamadı.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // API dokümantasyonuna uygun format - minimal test
+      const commentData = {
         content: newComment.trim(),
-        parent_id: null,
-      })
-    );
-    setNewComment("");
+      };
+
+      const response = await postService.createComment(postId, commentData);
+
+      if (response && response.success) {
+        // Redux'a ekle
+        const newCommentForRedux = {
+          ...(response.data || {}),
+          postId,
+          userId: effectiveUser.id,
+          user_id: effectiveUser.id, // API'den gelen format
+          user: effectiveUser, // Kullanıcı bilgisini ekle
+          id: response.data?.id || Date.now(), // Fallback ID
+          created_at: response.data?.created_at || new Date().toISOString(),
+          likes_count: response.data?.likes_count || 0,
+          user_liked: false,
+          anonymous: response.data?.anonymous || false,
+          parent_id: response.data?.parent_id || null,
+        };
+
+        dispatch(addComment(newCommentForRedux));
+
+        // Etkileşim servisine "comment" kaydet
+        if (effectiveUser && tags) {
+          try {
+            // Tags'i parse et - string formatından array'e çevir
+            const parsedTags =
+              typeof tags === "string" ? JSON.parse(tags) : tags;
+
+            if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+              parsedTags.forEach((t) =>
+                interactionService
+                  .commentTag(effectiveUser.id, t)
+                  .catch((err) =>
+                    console.error("Comment interaction error", err)
+                  )
+              );
+            }
+          } catch (parseError) {
+            console.error("Tags parse edilirken hata oluştu:", parseError);
+          }
+        }
+
+        // Recommender API'ye de kaydet
+        if (effectiveUser) {
+          recommenderService
+            .trackInteraction(effectiveUser.id, postId, "comment")
+            .catch((err) =>
+              console.error("Recommender comment tracking error", err)
+            );
+        }
+        setNewComment("");
+      } else {
+        throw new Error(response?.message || "Bilinmeyen hata");
+      }
+    } catch (error) {
+      console.error("Yorum oluşturma hatası:", error);
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response,
+        stack: error.stack,
+      });
+      alert(`Yorum gönderilemedi: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmitReply = (parentId) => {
-    if (!replyContent.trim() || !currentUser) return;
+  const handleSubmitReply = async (parentId) => {
+    // Auth debugging ve fallback (ana comment gibi)
+    let effectiveUser = currentUser;
 
-    dispatch(
-      addComment({
-        postId,
-        userId: currentUser.id,
+    // Eğer Redux'ta currentUser yoksa localStorage'dan al
+    if (!effectiveUser && typeof window !== "undefined") {
+      try {
+        const authState = JSON.parse(localStorage.getItem("authState"));
+        if (authState && authState.isAuthenticated && authState.user) {
+          effectiveUser = authState.user || authState.currentUser;
+        }
+      } catch (error) {
+        console.error(
+          "Failed to parse localStorage authState for reply:",
+          error
+        );
+      }
+    }
+
+    if (!replyContent.trim() || !effectiveUser) {
+      return;
+    }
+
+    try {
+      setLoadingActions((prev) => ({ ...prev, [parentId]: true }));
+
+      const commentData = {
         content: replyContent.trim(),
-        parent_id: parentId,
-      })
-    );
-    setReplyingTo(null);
-    setReplyContent("");
+        parent_id: parentId, // Reply için parent_id gerekli
+        anonymous: false,
+      };
+
+      const response = await postService.createComment(postId, commentData);
+
+      if (response && response.success) {
+        // Redux'a ekle
+        const newReplyForRedux = {
+          ...(response.data || {}),
+          postId,
+          userId: effectiveUser.id,
+          user_id: effectiveUser.id, // API format
+          user: effectiveUser,
+          id: response.data?.id || Date.now(),
+          created_at: response.data?.created_at || new Date().toISOString(),
+          likes_count: response.data?.likes_count || 0,
+          user_liked: false,
+          parent_id: parentId, // ÇOK ÖNEMLİ: parent_id'yi koruyalım
+          anonymous: response.data?.anonymous || false,
+        };
+
+        dispatch(addComment(newReplyForRedux));
+        setReplyingTo(null);
+        setReplyContent("");
+      } else {
+        throw new Error(response?.message || "Bilinmeyen hata");
+      }
+    } catch (error) {
+      console.error("Yanıt oluşturma hatası:", error);
+      alert(`Yanıt gönderilemedi: ${error.message}`);
+    } finally {
+      setLoadingActions((prev) => ({ ...prev, [parentId]: false }));
+    }
   };
 
-  const handleUpdateComment = (commentId) => {
+  const handleUpdateComment = async (commentId) => {
     if (!editContent.trim()) return;
 
-    dispatch(
-      updateComment({
-        id: commentId,
-        content: editContent.trim(),
-      })
-    );
-    setEditingComment(null);
-    setEditContent("");
-  };
+    try {
+      setLoadingActions((prev) => ({ ...prev, [commentId]: true }));
+      const commentData = { content: editContent.trim() };
 
-  const handleDeleteComment = (commentId) => {
-    if (window.confirm("Bu yorumu silmek istediğinize emin misiniz?")) {
-      dispatch(deleteComment(commentId));
+      const response = await postService.updateComment(
+        postId,
+        commentId,
+        commentData
+      );
+
+      if (response.success) {
+        dispatch(
+          updateComment({
+            id: commentId,
+            content: editContent.trim(),
+          })
+        );
+        setEditingComment(null);
+        setEditContent("");
+      }
+    } catch (error) {
+      console.error("Yorum güncelleme hatası:", error);
+      alert("Yorum güncellenemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setLoadingActions((prev) => ({ ...prev, [commentId]: false }));
     }
   };
 
-  const handleLike = (commentId, isLiked) => {
-    if (isLiked) {
-      dispatch(unlikeComment(commentId));
-    } else {
-      dispatch(likeComment(commentId));
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm("Bu yorumu silmek istediğinize emin misiniz?")) return;
+
+    try {
+      setLoadingActions((prev) => ({ ...prev, [commentId]: true }));
+      const response = await postService.deleteComment(postId, commentId);
+
+      if (response.success) {
+        dispatch(deleteComment(commentId));
+      }
+    } catch (error) {
+      console.error("Yorum silme hatası:", error);
+      alert("Yorum silinemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setLoadingActions((prev) => ({ ...prev, [commentId]: false }));
     }
   };
 
-  const renderComment = (comment) => {
-    const isEditing = editingComment === comment.id;
-    const isReplying = replyingTo === comment.id;
-    const isOwnComment = currentUser?.id === comment.userId;
+  const handleLike = async (commentId, isLiked) => {
+    if (!currentUser) return;
 
+    try {
+      setLoadingActions((prev) => ({ ...prev, [`like_${commentId}`]: true }));
+      const response = await postService.likeComment(postId, commentId);
+
+      if (response.success) {
+        // Redux'da beğeni durumunu güncelle
+        if (isLiked) {
+          dispatch(unlikeComment(commentId));
+        } else {
+          dispatch(likeComment(commentId));
+        }
+      }
+    } catch (error) {
+      console.error("Yorum beğeni hatası:", error);
+    } finally {
+      setLoadingActions((prev) => ({ ...prev, [`like_${commentId}`]: false }));
+    }
+  };
+
+  const handleReply = (comment) => {
+    setReplyingTo(comment.id);
+    setReplyContent(`@${comment.user?.username || comment.userId} `);
+  };
+
+  const handleEdit = (comment) => {
+    setEditingComment(comment.id);
+    setEditContent(comment.content);
+  };
+
+  if (loading && postComments.length === 0) {
     return (
-      <motion.div
-        key={comment.id}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="bg-white rounded-lg p-4 shadow-sm"
-      >
-        <div className="flex items-start gap-3">
-          <img
-            src="https://api.dicebear.com/7.x/avataaars/svg?seed=default&backgroundColor=b6e3f4"
-            alt="Kullanıcı"
-            className="w-8 h-8 rounded-full object-cover"
-          />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">
-                {comment.userId}
-              </span>
-              <span className="text-xs text-gray-500">
-                {formatDistanceToNow(new Date(comment.created_at), {
-                  addSuffix: true,
-                  locale: tr,
-                })}
-              </span>
-            </div>
-
-            {isEditing ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleUpdateComment(comment.id);
-                }}
-                className="mt-2"
-              >
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 resize-none"
-                  rows={3}
-                  placeholder="Yorumunuzu düzenleyin..."
-                />
-                <div className="flex justify-end gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingComment(null)}
-                    className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-                  >
-                    İptal
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1 text-sm text-white bg-accent hover:bg-accent-dark rounded-lg"
-                  >
-                    Güncelle
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <p className="text-gray-700 mt-1">{comment.content}</p>
-            )}
-
-            <div className="flex items-center gap-4 mt-2">
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleLike(comment.id, false)}
-                  className="p-1 text-gray-500 hover:text-accent rounded-full"
-                >
-                  <FaArrowUp size={14} />
-                </button>
-                <span className="text-sm font-medium text-gray-700">
-                  {comment.likes_count}
-                </span>
-                <button
-                  onClick={() => handleLike(comment.id, true)}
-                  className="p-1 text-gray-500 hover:text-red-500 rounded-full"
-                >
-                  <FaArrowDown size={14} />
-                </button>
-              </div>
-
-              <button
-                onClick={() => {
-                  setReplyingTo(comment.id);
-                  setReplyContent(`@${comment.userId} `);
-                }}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-accent"
-              >
-                <FaReply size={14} />
-                <span>Yanıtla</span>
-              </button>
-
-              {isOwnComment && (
-                <>
-                  <button
-                    onClick={() => {
-                      setEditingComment(comment.id);
-                      setEditContent(comment.content);
-                    }}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-accent"
-                  >
-                    <FaEdit size={14} />
-                    <span>Düzenle</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteComment(comment.id)}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500"
-                  >
-                    <FaTrash size={14} />
-                    <span>Sil</span>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {isReplying && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSubmitReply(comment.id);
-                }}
-                className="mt-4"
-              >
-                <textarea
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 resize-none"
-                  rows={3}
-                  placeholder="Yanıtınızı yazın..."
-                />
-                <div className="flex justify-end gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setReplyingTo(null)}
-                    className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-                  >
-                    İptal
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1 text-sm text-white bg-accent hover:bg-accent-dark rounded-lg"
-                  >
-                    Yanıtla
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Alt yorumları göster */}
-            {comments
-              .filter((reply) => reply.parent_id === comment.id)
-              .map((reply) => (
-                <div key={reply.id} className="ml-8 mt-4">
-                  {renderComment(reply)}
-                </div>
-              ))}
-          </div>
+      <div className="space-y-4">
+        <div className="text-center py-4">
+          <p className="text-gray-500">Yorumlar yükleniyor...</p>
         </div>
-      </motion.div>
+      </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-4">
@@ -268,14 +358,15 @@ const CommentSection = ({ postId }) => {
             className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 resize-none"
             rows={3}
             placeholder="Bir yorum yazın..."
+            disabled={loading}
           />
           <div className="flex justify-end mt-2">
             <button
               type="submit"
-              disabled={!newComment.trim()}
+              disabled={!newComment.trim() || loading}
               className="px-4 py-2 text-white bg-accent hover:bg-accent-dark rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Yorum Yap
+              {loading ? "Gönderiliyor..." : "Yorum Yap"}
             </button>
           </div>
         </form>
@@ -295,20 +386,95 @@ const CommentSection = ({ postId }) => {
         </div>
       )}
 
+      {/* Yanıt formu */}
+      {replyingTo && (
+        <motion.form
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmitReply(replyingTo);
+          }}
+          className="bg-blue-50 p-4 rounded-lg border border-blue-200"
+        >
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-blue-700">
+              Yanıt yazıyorsunuz
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setReplyingTo(null);
+                setReplyContent("");
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={replyContent}
+            onChange={(e) => setReplyContent(e.target.value)}
+            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 resize-none"
+            rows={3}
+            placeholder="Yanıtınızı yazın..."
+            disabled={loadingActions[replyingTo]}
+          />
+          <div className="flex justify-end gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setReplyingTo(null);
+                setReplyContent("");
+              }}
+              className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              disabled={loadingActions[replyingTo]}
+            >
+              İptal
+            </button>
+            <button
+              type="submit"
+              className="px-3 py-1 text-sm text-white bg-accent hover:bg-accent-dark rounded-lg disabled:opacity-50"
+              disabled={loadingActions[replyingTo] || !replyContent.trim()}
+            >
+              {loadingActions[replyingTo] ? "Gönderiliyor..." : "Yanıtla"}
+            </button>
+          </div>
+        </motion.form>
+      )}
+
       <AnimatePresence>
         {postComments.map((comment) => {
           if (!comment.parent_id) {
-            return renderComment(comment);
+            return (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                postId={postId}
+                onReply={handleReply}
+                onEdit={handleEdit}
+                loadingActions={loadingActions}
+                setLoadingActions={setLoadingActions}
+                level={0}
+              />
+            );
           }
           return null;
         })}
       </AnimatePresence>
 
-      {postComments.length === 0 && (
+      {postComments.length === 0 && !loading && (
         <div className="text-center py-8">
-          <p className="text-gray-500">Henüz yorum yapılmamış</p>
+          <p className="text-gray-500">
+            Henüz yorum yapılmamış. İlk yorumu siz yapın!
+          </p>
         </div>
       )}
+
+      <div className="mt-4 text-xs text-gray-400">
+        Debug: {postComments.length} yorum Redux'ta mevcut
+      </div>
     </div>
   );
 };

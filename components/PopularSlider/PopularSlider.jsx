@@ -14,8 +14,6 @@ const PopularSlider = () => {
     return [...posts].sort((a, b) => b.upvotes - a.upvotes).slice(0, 5);
   }, []);
 
-  console.log(popularPosts);
-
   const containerVariants = {
     hidden: { opacity: 0, x: 20 },
     visible: {

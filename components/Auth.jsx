@@ -105,12 +105,6 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
         setError(null);
 
         if (mode === "register") {
-          console.log("Registering user:", {
-            email: formData.email,
-            username: formData.username,
-            password: formData.password,
-          });
-
           // Yükleniyor durumunu güncelle
           setErrors((prev) => ({ ...prev, submit: null }));
 
@@ -129,7 +123,6 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
 
               if (response.success) {
                 success = true;
-                console.log("Registration successful");
 
                 // Token'ı localStorage'a kaydet
                 if (response.token) {
@@ -175,17 +168,10 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
             throw lastError;
           }
         } else {
-          console.log("Logging in user:", {
-            email: formData.email,
-            password: formData.password,
-          });
-
           const response = await userService.auth.login({
             email: formData.email,
             password: formData.password,
           });
-
-          console.log("Login response:", response);
 
           if (response && response.success) {
             // Token'ı localStorage'a kaydet
@@ -200,9 +186,6 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   user: response.user,
                 })
               );
-
-              // Başarılı giriş - onClose effect ile çalışacak
-              console.log("Login successful");
 
               // Ana sayfaya yönlendir
               router.push("/");
@@ -355,7 +338,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="E-posta"
-                  className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                  className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                     errors.email ? "ring-2 ring-red-500" : ""
                   }`}
                   disabled={loading}
@@ -375,7 +358,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                     value={formData.username}
                     onChange={handleChange}
                     placeholder="Kullanıcı adı"
-                    className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                    className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                       errors.username ? "ring-2 ring-red-500" : ""
                     }`}
                     disabled={loading}
@@ -395,7 +378,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Parola"
-                  className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                  className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                     errors.password ? "ring-2 ring-red-500" : ""
                   }`}
                   disabled={loading}
@@ -427,7 +410,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       placeholder="Parolayı tekrar girin"
-                      className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                      className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                         errors.confirmPassword ? "ring-2 ring-red-500" : ""
                       }`}
                       disabled={loading}

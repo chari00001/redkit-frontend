@@ -2,7 +2,7 @@
 
 ## Genel Bilgiler
 
-**Base URL:** `http://localhost:3010/api/users`
+**Base URL:** `http://localhost:3001/api/users`
 
 **Kimlik Doğrulama:** Çoğu endpoint JWT token gerektirir. Token, `Authorization` başlığında `Bearer [token]` formatında gönderilmelidir.
 

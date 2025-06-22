@@ -6,9 +6,7 @@ export const login = createAsyncThunk(
   "auth/login",
   async (credentials, { rejectWithValue }) => {
     try {
-      console.log("Sending login request with:", credentials);
       const response = await userService.login(credentials);
-      console.log("Login response from API:", response); // Debug log
 
       // API yanıtında user ve token var mı kontrol et
       if (!response.user || !response.token) {
@@ -33,9 +31,7 @@ export const register = createAsyncThunk(
   "auth/register",
   async (userData, { rejectWithValue }) => {
     try {
-      console.log("Sending register request with:", userData);
       const response = await userService.register(userData);
-      console.log("Register response from API:", response); // Debug log
 
       // API yanıtında user ve token var mı kontrol et
       if (!response.user || !response.token) {
@@ -203,6 +199,34 @@ const authSlice = createSlice({
         state.error = "Geçersiz kullanıcı verisi veya token.";
       }
     },
+    // LocalStorage'dan auth state'ini yeniden yükle
+    rehydrateAuth: (state) => {
+      if (typeof window === "undefined") return;
+
+      try {
+        const serializedState = localStorage.getItem("authState");
+        if (serializedState) {
+          const parsedState = JSON.parse(serializedState);
+
+          // Geçerli bir auth state varsa Redux'ı güncelle
+          if (
+            parsedState &&
+            parsedState.isAuthenticated &&
+            parsedState.token &&
+            parsedState.user
+          ) {
+            state.currentUser = parsedState.currentUser || parsedState.user;
+            state.token = parsedState.token;
+            state.isLoggedIn = true;
+            state.loading = false;
+            state.error = null;
+          }
+        }
+      } catch (error) {
+        console.error("Auth rehydration failed:", error);
+        state.error = "Oturum yüklenirken hata oluştu";
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -326,6 +350,7 @@ export const {
   logoutUser,
   loginSuccess,
   registerSuccess,
+  rehydrateAuth,
 } = authSlice.actions;
 
 export default authSlice.reducer;

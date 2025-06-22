@@ -25,6 +25,18 @@ export const fetchCommunityById = createAsyncThunk(
   }
 );
 
+// Topluluk adına göre getir
+export const fetchCommunityByName = createAsyncThunk(
+  "communities/fetchCommunityByName",
+  async (communityName, { rejectWithValue }) => {
+    try {
+      return await communityService.getCommunityByName(communityName);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Kullanıcının topluluklarını getir
 export const fetchUserCommunities = createAsyncThunk(
   "communities/fetchUserCommunities",
@@ -108,7 +120,7 @@ const communitiesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Topluluk detaylarını getir
       .addCase(fetchCommunityById.pending, (state) => {
         state.loading = true;
@@ -122,7 +134,21 @@ const communitiesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
+      // Topluluk adına göre getir
+      .addCase(fetchCommunityByName.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCommunityByName.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentCommunity = action.payload;
+      })
+      .addCase(fetchCommunityByName.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
       // Kullanıcının topluluklarını getir
       .addCase(fetchUserCommunities.pending, (state) => {
         state.loading = true;
@@ -130,13 +156,14 @@ const communitiesSlice = createSlice({
       })
       .addCase(fetchUserCommunities.fulfilled, (state, action) => {
         state.loading = false;
-        state.userCommunities = action.payload.communities || action.payload || [];
+        state.userCommunities =
+          action.payload.communities || action.payload || [];
       })
       .addCase(fetchUserCommunities.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Yeni topluluk oluştur
       .addCase(createCommunity.pending, (state) => {
         state.loading = true;
@@ -152,7 +179,7 @@ const communitiesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Topluluğa katıl
       .addCase(joinCommunity.pending, (state) => {
         state.loading = true;
@@ -169,7 +196,7 @@ const communitiesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Topluluktan ayrıl
       .addCase(leaveCommunity.pending, (state) => {
         state.loading = true;
@@ -178,12 +205,15 @@ const communitiesSlice = createSlice({
       .addCase(leaveCommunity.fulfilled, (state, action) => {
         state.loading = false;
         const communityId = action.meta.arg;
-        
-        if (state.currentCommunity && state.currentCommunity.id === communityId) {
+
+        if (
+          state.currentCommunity &&
+          state.currentCommunity.id === communityId
+        ) {
           state.currentCommunity.is_member = false;
           state.currentCommunity.member_count -= 1;
         }
-        
+
         // Kullanıcının toplulukları listesinden çıkar
         state.userCommunities = state.userCommunities.filter(
           (community) => community.id !== communityId

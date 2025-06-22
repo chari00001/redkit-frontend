@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // API temel URL'si
-const API_URL = "http://localhost:3010/api/users";
+const API_URL = "http://localhost:3001/api/users";
 
 // İstek interceptor'ları ve hata yakalama fonksiyonu
 const userApi = axios.create({
