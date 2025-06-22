@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaHome,
@@ -24,14 +24,65 @@ import {
   FaTrophy,
   FaHeart,
   FaLock,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { topics } from "@/mockData/topics";
+import { useSelector } from "react-redux";
+import { communityService } from "@/services/apiService";
 
 const LeftComp = () => {
   const pathname = usePathname();
   const [showAllTopics, setShowAllTopics] = useState(false);
+  const [userCommunities, setUserCommunities] = useState([]);
+  const [loadingCommunities, setLoadingCommunities] = useState(false);
+  const [error, setError] = useState(null);
+  const { isLoggedIn } = useSelector((state) => state.auth);
+
+  // Safely load user communities if user is logged in
+  useEffect(() => {
+    const fetchCommunities = async () => {
+      if (!isLoggedIn) {
+        setUserCommunities([]);
+        return;
+      }
+
+      setLoadingCommunities(true);
+      setError(null);
+
+      try {
+        // 3 saniye timeout ile API isteği yapılıyor
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error("Topluluklar için istek zaman aşımına uğradı")),
+            3000
+          )
+        );
+
+        const responsePromise = communityService.getUserCommunities();
+
+        // Race condition ile zaman aşımı kontrolü
+        const response = await Promise.race([responsePromise, timeoutPromise]);
+
+        // Response her zaman bir obje içinde communities array'i içerir
+        // Eğer bu yapı yoksa boş bir array kullan
+        const communities = response?.communities || [];
+
+        setUserCommunities(communities);
+      } catch (err) {
+        console.error("Failed to load communities:", err);
+        setError("Topluluklar yüklenemedi.");
+        // We set an empty array to prevent UI errors
+        setUserCommunities([]);
+      } finally {
+        setLoadingCommunities(false);
+      }
+    };
+
+    fetchCommunities();
+  }, [isLoggedIn]);
 
   const feeds = [
     { icon: <FaHome />, text: "Ana Sayfa", link: "/" },
@@ -90,6 +141,16 @@ const LeftComp = () => {
       animate={{ x: 0, opacity: 1 }}
       className="w-64 bg-white p-4 h-screen overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
     >
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+          <div className="flex items-center gap-2 text-red-500">
+            <FaExclamationTriangle />
+            <span className="text-sm">{error}</span>
+          </div>
+        </div>
+      )}
+
       {/* Feeds Section */}
       <div className="mb-6">
         <div className="space-y-1">
@@ -187,6 +248,48 @@ const LeftComp = () => {
         </div>
       </div>
 
+      {/* User Communities Section - Only shown if logged in */}
+      {isLoggedIn && (
+        <div className="mb-6">
+          <h3 className="text-xs font-bold text-gray-500 px-4 mb-2 uppercase tracking-wider">
+            Toplulukların
+          </h3>
+          <div className="space-y-1">
+            {loadingCommunities ? (
+              <div className="text-center py-2 text-sm text-gray-500">
+                Yükleniyor...
+              </div>
+            ) : userCommunities.length > 0 ? (
+              userCommunities.map((community) => (
+                <Link href={`/community/${community.id}`} key={community.id}>
+                  <motion.div
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-all cursor-pointer"
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-white text-xs">
+                      {community.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-sm font-medium truncate">
+                        {community.name}
+                      </span>
+                      <span className="text-xs text-gray-500 truncate">
+                        {community.member_count || 0} üye
+                      </span>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))
+            ) : (
+              <div className="text-center py-2 text-sm text-gray-500">
+                Henüz bir topluluğa üye değilsin
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Resources Section */}
       <div>
         <h3 className="text-xs font-bold text-gray-500 px-4 mb-2 uppercase tracking-wider">
@@ -198,16 +301,12 @@ const LeftComp = () => {
               <motion.div
                 key={index}
                 className="w-full flex items-center gap-3 px-4 py-3 text-gray-400 cursor-not-allowed rounded-lg group relative"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
+                whileHover={{ x: 0 }}
               >
                 <span className="text-xl">{resource.icon}</span>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{resource.text}</span>
-                  <span className="text-xs text-gray-400">
-                    {resource.description}
-                  </span>
+                  <span className="text-xs">{resource.description}</span>
                 </div>
                 <FaLock className="ml-auto text-xs" />
               </motion.div>
@@ -217,9 +316,6 @@ const LeftComp = () => {
                   className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-all cursor-pointer"
                   whileHover={{ x: 4 }}
                   whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
                 >
                   <span className="text-xl">{resource.icon}</span>
                   <div className="flex flex-col">

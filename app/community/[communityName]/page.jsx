@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
@@ -14,13 +14,19 @@ import {
   FaEllipsisH,
 } from "react-icons/fa";
 import PostCard from "@/components/PostComponents/PostCard";
-import { getCommunityById } from "@/store/features/communitiesSlice";
+import {
+  fetchCommunityById,
+  joinCommunity,
+  leaveCommunity,
+} from "@/store/features/communitiesSlice";
 import { getCommunityPosts } from "@/store/features/postsSlice";
+import { toast } from "react-hot-toast";
 
 const CommunityPage = () => {
   const params = useParams();
   const dispatch = useDispatch();
   const communityName = decodeURIComponent(params.communityName);
+  const [isJoined, setIsJoined] = useState(false);
 
   const {
     currentCommunity,
@@ -32,13 +38,61 @@ const CommunityPage = () => {
     loading: postsLoading,
     error: postsError,
   } = useSelector((state) => state.posts);
+  const { isLoggedIn } = useSelector((state) => state.auth);
 
   useEffect(() => {
     if (communityName) {
-      dispatch(getCommunityById(communityName));
-      dispatch(getCommunityPosts(communityName));
+
+      // Community detaylarını getir (otomatik name->ID çevirimi ile)
+      dispatch(fetchCommunityById(communityName))
+        .unwrap()
+        .then((community) => {
+          // Community yüklendikten sonra postları getir
+          const communityId = community.id || communityName;
+          return dispatch(getCommunityPosts(communityId));
+        })
+        .catch((error) => {
+          console.error("Failed to load community:", error);
+          // Hata durumunda da postları denemeye devam et
+          dispatch(getCommunityPosts(communityName));
+        });
     }
   }, [dispatch, communityName]);
+
+  useEffect(() => {
+    if (currentCommunity) {
+      setIsJoined(currentCommunity.is_member || false);
+    }
+  }, [currentCommunity]);
+
+  const handleJoinCommunity = () => {
+    if (!isLoggedIn) {
+      toast.error("Topluluğa katılmak için giriş yapmalısınız");
+      return;
+    }
+
+    if (isJoined) {
+      dispatch(leaveCommunity(currentCommunity.id))
+        .unwrap()
+        .then(() => {
+          setIsJoined(false);
+          toast.success("Topluluktan başarıyla ayrıldınız");
+        })
+        .catch((error) => {
+          toast.error(`Hata: ${error}`);
+        });
+    } else {
+      dispatch(joinCommunity(currentCommunity.id))
+        .unwrap()
+        .then(() => {
+          setIsJoined(true);
+          toast.success("Topluluğa başarıyla katıldınız");
+        })
+        .catch((error) => {
+          toast.error(`Hata: ${error}`);
+        });
+    }
+  };
 
   if (communityLoading || postsLoading) {
     return (
@@ -122,10 +176,15 @@ const CommunityPage = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-6 py-2.5 bg-accent text-white rounded-xl font-medium flex items-center gap-2"
+                onClick={handleJoinCommunity}
+                className={`px-6 py-2.5 ${
+                  isJoined
+                    ? "bg-gray-200 text-gray-800"
+                    : "bg-accent text-white"
+                } rounded-xl font-medium flex items-center gap-2`}
               >
                 <FaBell />
-                Takip Et
+                {isJoined ? "Ayrıl" : "Takip Et"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -250,22 +309,22 @@ const CommunityPage = () => {
               <h3 className="font-semibold text-gray-900 mb-4">
                 İstatistikler
               </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Toplam Üye</span>
-                  <span className="font-medium text-gray-900">
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Üyeler</span>
+                  <span className="font-medium">
                     {currentCommunity.member_count?.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Toplam Gönderi</span>
-                  <span className="font-medium text-gray-900">
-                    {currentCommunity.post_count?.toLocaleString()}
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Gönderiler</span>
+                  <span className="font-medium">
+                    {currentCommunity.post_count}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between">
                   <span className="text-gray-600">Oluşturulma Tarihi</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium">
                     {new Date(currentCommunity.created_at).toLocaleDateString()}
                   </span>
                 </div>

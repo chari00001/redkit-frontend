@@ -9,8 +9,16 @@ import {
   FaTimes,
   FaCheck,
 } from "react-icons/fa";
+import { interactionService } from "@/services/apiService";
+import { recommenderService } from "@/services/apiService";
 
-const ShareComp = ({ show, onClose, url = window?.location?.href }) => {
+const ShareComp = ({
+  show,
+  onClose,
+  url = typeof window !== "undefined" ? window.location.href : "",
+  userId = null,
+  tags = [],
+}) => {
   const [copied, setCopied] = useState(false);
 
   const shareButtons = [
@@ -19,6 +27,24 @@ const ShareComp = ({ show, onClose, url = window?.location?.href }) => {
       label: "Twitter",
       color: "#1DA1F2",
       onClick: () => {
+        if (userId && tags) {
+          try {
+            // Tags'i parse et - string formatından array'e çevir
+            const parsedTags =
+              typeof tags === "string" ? JSON.parse(tags) : tags;
+
+            if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+              parsedTags.forEach((t) =>
+                interactionService
+                  .shareTag(userId, t)
+                  .catch((err) => console.error("Share interaction error", err))
+              );
+            }
+          } catch (parseError) {
+            console.error("Tags parse edilirken hata oluştu:", parseError);
+          }
+        }
+
         window.open(
           `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}`,
           "_blank"
@@ -30,6 +56,23 @@ const ShareComp = ({ show, onClose, url = window?.location?.href }) => {
       label: "Facebook",
       color: "#4267B2",
       onClick: () => {
+        if (userId && tags) {
+          try {
+            // Tags'i parse et - string formatından array'e çevir
+            const parsedTags =
+              typeof tags === "string" ? JSON.parse(tags) : tags;
+
+            if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+              parsedTags.forEach((t) =>
+                interactionService
+                  .shareTag(userId, t)
+                  .catch((err) => console.error("Share interaction error", err))
+              );
+            }
+          } catch (parseError) {
+            console.error("Tags parse edilirken hata oluştu:", parseError);
+          }
+        }
         window.open(
           `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
             url
@@ -43,6 +86,13 @@ const ShareComp = ({ show, onClose, url = window?.location?.href }) => {
       label: "WhatsApp",
       color: "#25D366",
       onClick: () => {
+        if (userId && tags && tags.length > 0) {
+          tags.forEach((t) =>
+            interactionService
+              .shareTag(userId, t)
+              .catch((err) => console.error("Share interaction error", err))
+          );
+        }
         window.open(`https://wa.me/?text=${encodeURIComponent(url)}`, "_blank");
       },
     },
@@ -51,6 +101,23 @@ const ShareComp = ({ show, onClose, url = window?.location?.href }) => {
       label: "LinkedIn",
       color: "#0077B5",
       onClick: () => {
+        if (userId && tags) {
+          try {
+            // Tags'i parse et - string formatından array'e çevir
+            const parsedTags =
+              typeof tags === "string" ? JSON.parse(tags) : tags;
+
+            if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+              parsedTags.forEach((t) =>
+                interactionService
+                  .shareTag(userId, t)
+                  .catch((err) => console.error("Share interaction error", err))
+              );
+            }
+          } catch (parseError) {
+            console.error("Tags parse edilirken hata oluştu:", parseError);
+          }
+        }
         window.open(
           `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
             url
@@ -65,6 +132,36 @@ const ShareComp = ({ show, onClose, url = window?.location?.href }) => {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+
+      if (userId && tags) {
+        try {
+          // Tags'i parse et - string formatından array'e çevir
+          const parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags;
+
+          if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+            parsedTags.forEach((t) =>
+              interactionService
+                .shareTag(userId, t)
+                .catch((err) => console.error("Share interaction error", err))
+            );
+          }
+        } catch (parseError) {
+          console.error("Tags parse edilirken hata oluştu:", parseError);
+        }
+      }
+
+      // Recommender'a da kaydet (postId gerekirse prop olarak geçilebilir)
+      if (userId && window.location.pathname.includes("/post/")) {
+        const postId = window.location.pathname.split("/post/")[1];
+        if (postId) {
+          recommenderService
+            .trackInteraction(userId, parseInt(postId), "share")
+            .catch((err) =>
+              console.error("Recommender share tracking error", err)
+            );
+        }
+      }
+
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Bağlantı kopyalanırken hata oluştu:", err);

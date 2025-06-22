@@ -1,12 +1,87 @@
-import { createSlice } from "@reduxjs/toolkit";
-import { users } from "@/mockData/users";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { userService } from "@/services/apiService";
+
+// Kullanıcı girişi yapma
+export const login = createAsyncThunk(
+  "auth/login",
+  async (credentials, { rejectWithValue }) => {
+    try {
+      const response = await userService.login(credentials);
+
+      // API yanıtında user ve token var mı kontrol et
+      if (!response.user || !response.token) {
+        console.error("Invalid API response format:", response);
+        return rejectWithValue(
+          "Sunucudan geçersiz yanıt alındı. Lütfen daha sonra tekrar deneyin."
+        );
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Login error in thunk:", error); // Debug log
+      return rejectWithValue(
+        error.message || "Giriş yapılırken bir hata oluştu."
+      );
+    }
+  }
+);
+
+// Kullanıcı kaydı yapma
+export const register = createAsyncThunk(
+  "auth/register",
+  async (userData, { rejectWithValue }) => {
+    try {
+      const response = await userService.register(userData);
+
+      // API yanıtında user ve token var mı kontrol et
+      if (!response.user || !response.token) {
+        console.error("Invalid API response format:", response);
+        return rejectWithValue(
+          "Sunucudan geçersiz yanıt alındı. Lütfen daha sonra tekrar deneyin."
+        );
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Register error in thunk:", error); // Debug log
+      return rejectWithValue(error.message || "Kayıt olurken bir hata oluştu.");
+    }
+  }
+);
+
+// Kullanıcı profilini getirme
+export const fetchUserProfile = createAsyncThunk(
+  "auth/fetchUserProfile",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await userService.getProfile(userId);
+      return response.user || response; // Handle both {user: {...}} and direct user object
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Kullanıcı profilini güncelleme
+export const updateUserProfile = createAsyncThunk(
+  "auth/updateUserProfile",
+  async ({ userId, userData }, { rejectWithValue }) => {
+    try {
+      const response = await userService.updateProfile(userId, userData);
+      return response.user || response; // Handle both {user: {...}} and direct user object
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 // LocalStorage'dan mevcut kullanıcı bilgilerini al
 const loadState = () => {
   const defaultState = {
-    users: users,
+    users: [],
     currentUser: null,
     isLoggedIn: false,
+    token: null,
     loading: false,
     error: null,
   };
@@ -25,17 +100,8 @@ const loadState = () => {
 
     const parsedState = JSON.parse(serializedState);
 
-    // Mevcut kullanıcıları birleştir ve tekrarları önle
-    const mergedUsers = [
-      ...users,
-      ...parsedState.users.filter(
-        (u) => !users.find((defaultUser) => defaultUser.id === u.id)
-      ),
-    ];
-
     return {
       ...parsedState,
-      users: mergedUsers,
       // Date.now() gibi değişken değerleri temizle
       currentUser: parsedState.currentUser
         ? {
@@ -67,6 +133,8 @@ const saveState = (state) => {
             lastLoginAt: undefined,
           }
         : null,
+      // Don't save loading state to localStorage
+      loading: false,
     };
 
     const serializedState = JSON.stringify(stateToSave);
@@ -83,82 +151,206 @@ const authSlice = createSlice({
     setLoading: (state, action) => {
       state.loading = action.payload;
       state.error = null;
-      saveState(state);
     },
     setError: (state, action) => {
       state.error = action.payload;
       state.loading = false;
-      saveState(state);
-    },
-    registerUser: (state, action) => {
-      const newUser = {
-        id: String(Date.now()), // String'e çevir
-        ...action.payload,
-        profile_picture_url: `https://i.pravatar.cc/300?u=${Date.now()}`,
-        createdAt: new Date().toISOString(), // ISO string formatında sakla
-      };
-      state.users.push(newUser);
-      state.currentUser = newUser;
-      state.isLoggedIn = true;
-      state.loading = false;
-      state.error = null;
-      saveState(state);
-    },
-    loginUser: (state, action) => {
-      const user = state.users.find(
-        (u) =>
-          u.email === action.payload.email &&
-          u.password === action.payload.password
-      );
-      if (user) {
-        state.currentUser = {
-          ...user,
-          lastLoginAt: new Date().toISOString(), // ISO string formatında sakla
-        };
-        state.isLoggedIn = true;
-        state.error = null;
-      } else {
-        state.error = "Geçersiz e-posta veya parola";
-      }
-      state.loading = false;
-      saveState(state);
     },
     logoutUser: (state) => {
       state.currentUser = null;
       state.isLoggedIn = false;
+      state.token = null;
       state.loading = false;
       state.error = null;
       saveState(state);
-    },
-    updateUserData: (state, action) => {
-      const { userId, data } = action.payload;
-      const userIndex = state.users.findIndex((u) => u.id === userId);
-      if (userIndex !== -1) {
-        state.users[userIndex] = {
-          ...state.users[userIndex],
-          ...data,
-          updatedAt: new Date().toISOString(), // ISO string formatında sakla
-        };
-        if (state.currentUser?.id === userId) {
-          state.currentUser = {
-            ...state.currentUser,
-            ...data,
-            updatedAt: new Date().toISOString(),
-          };
-        }
+
+      // LocalStorage'dan token'ı da temizle
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
       }
-      saveState(state);
     },
+    // Kullanıcı girişi başarılı - userService ile doğrudan giriş için
+    loginSuccess: (state, action) => {
+      const { token, user } = action.payload;
+
+      if (user && token) {
+        state.currentUser = user;
+        state.token = token;
+        state.isLoggedIn = true;
+        state.loading = false;
+        state.error = null;
+        saveState(state);
+      } else {
+        state.error = "Geçersiz kullanıcı verisi veya token.";
+      }
+    },
+    // Kullanıcı kaydı başarılı - userService ile doğrudan kayıt için
+    registerSuccess: (state, action) => {
+      const { token, user } = action.payload;
+
+      if (user && token) {
+        state.currentUser = user;
+        state.token = token;
+        state.isLoggedIn = true;
+        state.loading = false;
+        state.error = null;
+        saveState(state);
+      } else {
+        state.error = "Geçersiz kullanıcı verisi veya token.";
+      }
+    },
+    // LocalStorage'dan auth state'ini yeniden yükle
+    rehydrateAuth: (state) => {
+      if (typeof window === "undefined") return;
+
+      try {
+        const serializedState = localStorage.getItem("authState");
+        if (serializedState) {
+          const parsedState = JSON.parse(serializedState);
+
+          // Geçerli bir auth state varsa Redux'ı güncelle
+          if (
+            parsedState &&
+            parsedState.isAuthenticated &&
+            parsedState.token &&
+            parsedState.user
+          ) {
+            state.currentUser = parsedState.currentUser || parsedState.user;
+            state.token = parsedState.token;
+            state.isLoggedIn = true;
+            state.loading = false;
+            state.error = null;
+          }
+        }
+      } catch (error) {
+        console.error("Auth rehydration failed:", error);
+        state.error = "Oturum yüklenirken hata oluştu";
+      }
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Login
+      .addCase(login.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(login.fulfilled, (state, action) => {
+        // Handle both {user: {...}, token: '...'} and direct object formats
+        const user = action.payload.user || null;
+        const token = action.payload.token || null;
+
+        if (user && token) {
+          state.currentUser = user;
+          state.token = token;
+          state.isLoggedIn = true;
+          state.loading = false;
+          state.error = null;
+          saveState(state);
+        } else {
+          state.loading = false;
+          state.error = "Invalid response format from server";
+        }
+      })
+      .addCase(login.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Register
+      .addCase(register.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(register.fulfilled, (state, action) => {
+        // Handle both {user: {...}, token: '...'} and direct object formats
+        const user = action.payload.user || null;
+        const token = action.payload.token || null;
+
+        if (user && token) {
+          state.currentUser = user;
+          state.token = token;
+          state.isLoggedIn = true;
+          state.loading = false;
+          state.error = null;
+          saveState(state);
+        } else {
+          state.loading = false;
+          state.error = "Invalid response format from server";
+        }
+      })
+      .addCase(register.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Fetch user profile
+      .addCase(fetchUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        const user = action.payload;
+
+        // Kullanıcı listesinde mevcut kullanıcıyı güncelle
+        const userIndex = state.users.findIndex((u) => u.id === user.id);
+        if (userIndex !== -1) {
+          state.users[userIndex] = user;
+        } else {
+          state.users.push(user);
+        }
+
+        // Eğer giriş yapmış kullanıcı ise currentUser'ı da güncelle
+        if (state.currentUser && state.currentUser.id === user.id) {
+          state.currentUser = user;
+        }
+
+        state.loading = false;
+        state.error = null;
+        saveState(state);
+      })
+      .addCase(fetchUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Update user profile
+      .addCase(updateUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        const updatedUser = action.payload;
+
+        // Kullanıcı listesinde mevcut kullanıcıyı güncelle
+        const userIndex = state.users.findIndex((u) => u.id === updatedUser.id);
+        if (userIndex !== -1) {
+          state.users[userIndex] = updatedUser;
+        }
+
+        // Eğer giriş yapmış kullanıcı ise currentUser'ı da güncelle
+        if (state.currentUser && state.currentUser.id === updatedUser.id) {
+          state.currentUser = updatedUser;
+        }
+
+        state.loading = false;
+        state.error = null;
+        saveState(state);
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      });
   },
 });
 
 export const {
   setLoading,
   setError,
-  registerUser,
-  loginUser,
   logoutUser,
-  updateUserData,
+  loginSuccess,
+  registerSuccess,
+  rehydrateAuth,
 } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -4,12 +4,17 @@ import React, { useState, useEffect } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub, FaApple, FaTimes, FaEye, FaEyeSlash } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDispatch, useSelector } from "react-redux";
-import { registerUser, loginUser, setError } from "@/store/features/authSlice";
+import { userService } from "@/services/userService";
+import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { loginSuccess, registerSuccess } from "@/store/features/authSlice";
 
 const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
+  const router = useRouter();
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const [mode, setMode] = useState(initialMode);
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +26,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     agreeToTerms: false,
   });
   const [errors, setErrors] = useState({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
@@ -32,7 +38,27 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     }
   }, [error]);
 
+  // Close modal when successfully logged in
+  useEffect(() => {
+    if (isLoggedIn && submitAttempted) {
+      onClose();
+      resetForm();
+    }
+  }, [isLoggedIn, submitAttempted]);
+
   if (!isOpen) return null;
+
+  const resetForm = () => {
+    setFormData({
+      email: "",
+      username: "",
+      password: "",
+      confirmPassword: "",
+      agreeToTerms: false,
+    });
+    setErrors({});
+    setSubmitAttempted(false);
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -71,34 +97,119 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      if (mode === "register") {
-        dispatch(
-          registerUser({
-            email: formData.email,
-            username: formData.username,
-            password: formData.password,
-          })
-        );
-      } else {
-        dispatch(
-          loginUser({
-            email: formData.email,
-            password: formData.password,
-          })
-        );
-      }
+    setSubmitAttempted(true);
 
-      // Başarılı giriş/kayıt durumunda modalı kapat
-      if (!error) {
-        onClose();
-        setFormData({
-          email: "",
-          username: "",
-          password: "",
-          confirmPassword: "",
-          agreeToTerms: false,
-        });
+    if (validateForm()) {
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (mode === "register") {
+          // Yükleniyor durumunu güncelle
+          setErrors((prev) => ({ ...prev, submit: null }));
+
+          // Belirli sayıda deneme yapıyoruz (en fazla 2 deneme)
+          let attempt = 0;
+          let success = false;
+          let lastError;
+
+          while (attempt < 2 && !success) {
+            try {
+              const response = await userService.auth.register({
+                email: formData.email,
+                username: formData.username,
+                password: formData.password,
+              });
+
+              if (response.success) {
+                success = true;
+
+                // Token'ı localStorage'a kaydet
+                if (response.token) {
+                  localStorage.setItem("token", response.token);
+                  setIsLoggedIn(true);
+
+                  // Redux store'a kullanıcı verilerini kaydet
+                  dispatch(
+                    registerSuccess({
+                      token: response.token,
+                      user: response.user,
+                    })
+                  );
+
+                  // Ana sayfaya yönlendir
+                  router.push("/");
+                }
+              } else {
+                throw new Error(
+                  response.message || "Kayıt işlemi başarısız oldu."
+                );
+              }
+            } catch (attemptError) {
+              attempt++;
+              lastError = attemptError;
+              console.error(
+                `Register attempt ${attempt} failed:`,
+                attemptError
+              );
+
+              if (attempt < 2) {
+                // Kullanıcıya bilgi ver ve 1.5 saniye bekle
+                setErrors((prev) => ({
+                  ...prev,
+                  submit: `Kayıt işlemi başarısız oldu. Tekrar deneniyor (${attempt}/2)...`,
+                }));
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+              }
+            }
+          }
+
+          if (!success && lastError) {
+            throw lastError;
+          }
+        } else {
+          const response = await userService.auth.login({
+            email: formData.email,
+            password: formData.password,
+          });
+
+          if (response && response.success) {
+            // Token'ı localStorage'a kaydet
+            if (response.token) {
+              localStorage.setItem("token", response.token);
+              setIsLoggedIn(true);
+
+              // Redux store'a kullanıcı verilerini kaydet
+              dispatch(
+                loginSuccess({
+                  token: response.token,
+                  user: response.user,
+                })
+              );
+
+              // Ana sayfaya yönlendir
+              router.push("/");
+            } else {
+              throw new Error("Giriş başarılı ancak token bulunamadı.");
+            }
+          } else {
+            throw new Error(
+              response?.message ||
+                "Giriş başarısız. Lütfen e-posta ve şifrenizi kontrol edin."
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+        setErrors((prev) => ({
+          ...prev,
+          submit:
+            error.message ||
+            "İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.",
+        }));
+        setError(null); // Çelişkiyi önlemek için global error'ı temizle
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -115,7 +226,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
     }
     // Global error'ı temizle
     if (error) {
-      dispatch(setError(null));
+      setError(null);
     }
   };
 
@@ -227,7 +338,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="E-posta"
-                  className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                  className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                     errors.email ? "ring-2 ring-red-500" : ""
                   }`}
                   disabled={loading}
@@ -247,7 +358,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                     value={formData.username}
                     onChange={handleChange}
                     placeholder="Kullanıcı adı"
-                    className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                    className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                       errors.username ? "ring-2 ring-red-500" : ""
                     }`}
                     disabled={loading}
@@ -267,7 +378,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Parola"
-                  className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                  className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                     errors.password ? "ring-2 ring-red-500" : ""
                   }`}
                   disabled={loading}
@@ -299,7 +410,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       placeholder="Parolayı tekrar girin"
-                      className={`w-full px-4 py-3 bg-gray-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
+                      className={`w-full px-4 py-3 bg-gray-50 text-gray-900 placeholder:text-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
                         errors.confirmPassword ? "ring-2 ring-red-500" : ""
                       }`}
                       disabled={loading}
@@ -382,7 +493,7 @@ const Auth = ({ isOpen, onClose, initialMode = "login" }) => {
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
                 setErrors({});
-                dispatch(setError(null));
+                setError(null);
               }}
               className="text-accent hover:underline font-medium"
             >
